@@ -1,0 +1,6 @@
+# Copy this file to signing.properties and fill in values for your release key.
+# signing.properties and keystore files are intentionally ignored by git.
+storeFile=keystores/spotify-browser-release.jks
+storePassword=change-me
+keyAlias=spotify-browser
+keyPassword=change-me
