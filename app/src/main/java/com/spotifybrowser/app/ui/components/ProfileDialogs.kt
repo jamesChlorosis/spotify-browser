@@ -78,7 +78,7 @@ fun DeleteProfileDialog(
         onDismissRequest = onDismiss,
         title = { Text("Delete ${profile.name}?") },
         text = {
-            Text("This clears the profile entry and removes its isolated WebView data when the files are not in use.")
+            Text("This clears the profile entry and removes its isolated browser data when the profile is not in use.")
         },
         confirmButton = {
             Button(onClick = onConfirm) {

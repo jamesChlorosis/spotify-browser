@@ -87,7 +87,7 @@ fun SettingsPanel(
 
         SettingRow(
             title = "Autoplay",
-            subtitle = "Allow media playback without an extra tap where WebView supports it.",
+            subtitle = "Keep media active when the browser engine allows it.",
             trailing = {
                 Switch(
                     checked = settings.autoplayEnabled,
@@ -136,7 +136,7 @@ fun SettingsPanel(
             onDismissRequest = { confirmClearProfile = false },
             title = { Text("Clear current profile?") },
             text = {
-                Text("This removes cookies, WebView storage, history, form data, and cache for the active profile.")
+                Text("This removes cookies, site storage, history, form data, and cache for the active profile.")
             },
             confirmButton = {
                 Button(

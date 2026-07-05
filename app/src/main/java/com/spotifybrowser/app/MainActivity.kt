@@ -4,11 +4,6 @@ import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
-import android.view.View
-import android.view.ViewGroup
-import android.webkit.ValueCallback
-import android.webkit.WebChromeClient
-import android.widget.FrameLayout
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -21,16 +16,21 @@ import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.spotifybrowser.app.data.gecko.ExtensionInstallHost
+import com.spotifybrowser.app.data.gecko.GeckoBrowserHost
+import com.spotifybrowser.app.data.gecko.GeckoExtensionManager
+import com.spotifybrowser.app.data.gecko.GeckoRuntimeProvider
 import com.spotifybrowser.app.data.preferences.PreferencesRepository
-import com.spotifybrowser.app.data.profile.AppRestarter
+import com.spotifybrowser.app.data.preferences.BrowserSettings
 import com.spotifybrowser.app.data.profile.ProfileManager
-import com.spotifybrowser.app.data.web.WebViewHost
 import com.spotifybrowser.app.ui.screens.SpotifyBrowserApp
 import com.spotifybrowser.app.ui.theme.SpotifyBrowserTheme
 import com.spotifybrowser.app.viewmodel.MainViewModel
 import com.spotifybrowser.app.viewmodel.MainViewModelFactory
+import org.mozilla.geckoview.GeckoResult
+import org.mozilla.geckoview.GeckoSession
 
-class MainActivity : ComponentActivity(), WebViewHost {
+class MainActivity : ComponentActivity(), GeckoBrowserHost, ExtensionInstallHost {
     private val profileManager by lazy { ProfileManager(applicationContext) }
     private val preferencesRepository by lazy { PreferencesRepository(applicationContext) }
 
@@ -39,21 +39,23 @@ class MainActivity : ComponentActivity(), WebViewHost {
             application = application,
             profileManager = profileManager,
             preferencesRepository = preferencesRepository,
-            initialProfileId = intent.getStringExtra(AppRestarter.EXTRA_PROFILE_ID)
+            initialProfileId = null
         )
     }
 
-    private var filePathCallback: ValueCallback<Array<Uri>>? = null
-    private var customView: View? = null
-    private var customViewCallback: WebChromeClient.CustomViewCallback? = null
+    private var pendingFilePrompt: GeckoSession.PromptDelegate.FilePrompt? = null
+    private var pendingFileResult: GeckoResult<GeckoSession.PromptDelegate.PromptResponse>? = null
 
-    private val fileChooserLauncher = registerForActivityResult(
-        ActivityResultContracts.StartActivityForResult()
-    ) { result ->
-        val callback = filePathCallback ?: return@registerForActivityResult
-        filePathCallback = null
-        val uris = WebChromeClient.FileChooserParams.parseResult(result.resultCode, result.data)
-        callback.onReceiveValue(uris ?: emptyArray())
+    private val singleFileLauncher = registerForActivityResult(
+        ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        completeFilePrompt(if (uri == null) emptyArray() else arrayOf(uri))
+    }
+
+    private val multipleFilesLauncher = registerForActivityResult(
+        ActivityResultContracts.OpenMultipleDocuments()
+    ) { uris ->
+        completeFilePrompt(uris.toTypedArray())
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -68,13 +70,14 @@ class MainActivity : ComponentActivity(), WebViewHost {
             SpotifyBrowserTheme(themeMode = uiState.settings.themeMode) {
                 SpotifyBrowserApp(
                     uiState = uiState,
-                    host = this,
+                    browserHost = this,
+                    extensionInstallHost = this,
                     onOpenProfile = viewModel::openProfile,
                     onCreateProfile = viewModel::createProfile,
                     onRenameProfile = viewModel::renameProfile,
                     onDeleteProfile = viewModel::deleteProfile,
-                    onWebViewStarted = viewModel::markWebViewStarted,
                     onBrowserChromeChanged = viewModel::updateBrowserChrome,
+                    onExtensionSetupFinished = viewModel::finishExtensionSetup,
                     onDesktopUserAgentChanged = viewModel::setDesktopUserAgent,
                     onZoomChanged = viewModel::setDefaultZoomPercent,
                     onJavaScriptChanged = viewModel::setJavaScriptEnabled,
@@ -91,9 +94,7 @@ class MainActivity : ComponentActivity(), WebViewHost {
     }
 
     override fun onDestroy() {
-        filePathCallback?.onReceiveValue(emptyArray())
-        filePathCallback = null
-        hideFullscreenContent()
+        dismissPendingFilePrompt()
         super.onDestroy()
     }
 
@@ -107,53 +108,90 @@ class MainActivity : ComponentActivity(), WebViewHost {
             }
     }
 
-    override fun openFileChooser(
-        callback: ValueCallback<Array<Uri>>,
-        params: WebChromeClient.FileChooserParams
-    ): Boolean {
-        filePathCallback?.onReceiveValue(emptyArray())
-        filePathCallback = callback
+    override fun setPageFullscreen(enabled: Boolean) {
+        hideSystemBars()
+    }
 
-        return runCatching {
-            fileChooserLauncher.launch(params.createIntent())
-            true
-        }.getOrElse {
-            filePathCallback = null
-            callback.onReceiveValue(emptyArray())
+    override fun onFilePrompt(
+        prompt: GeckoSession.PromptDelegate.FilePrompt
+    ): GeckoResult<GeckoSession.PromptDelegate.PromptResponse> {
+        dismissPendingFilePrompt()
+        val result = GeckoResult<GeckoSession.PromptDelegate.PromptResponse>()
+        pendingFilePrompt = prompt
+        pendingFileResult = result
+
+        if (prompt.type == GeckoSession.PromptDelegate.FilePrompt.Type.FOLDER) {
+            Toast.makeText(this, "Folder upload is not supported", Toast.LENGTH_SHORT).show()
+            completeFilePrompt(emptyArray())
+            return result
+        }
+
+        val mimeTypes = prompt.mimeTypes
+            ?.takeIf { it.isNotEmpty() }
+            ?: arrayOf("*/*")
+
+        runCatching {
+            if (prompt.type == GeckoSession.PromptDelegate.FilePrompt.Type.MULTIPLE) {
+                multipleFilesLauncher.launch(mimeTypes)
+            } else {
+                singleFileLauncher.launch(mimeTypes)
+            }
+        }.onFailure {
             Toast.makeText(this, "No file picker is available", Toast.LENGTH_LONG).show()
-            false
+            completeFilePrompt(emptyArray())
         }
+
+        return result
     }
 
-    override fun showFullscreenContent(
-        view: View,
-        callback: WebChromeClient.CustomViewCallback
+    override fun installExtensionFromUrl(
+        url: String,
+        onResult: (Result<String>) -> Unit
     ) {
-        if (customView != null) {
-            callback.onCustomViewHidden()
-            return
-        }
-
-        customView = view
-        customViewCallback = callback
-        val content = findViewById<FrameLayout>(android.R.id.content)
-        content.addView(
-            view,
-            FrameLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.MATCH_PARENT
-            )
+        val runtime = GeckoRuntimeProvider.get(
+            context = applicationContext,
+            settings = BrowserSettings()
         )
-        hideSystemBars()
+
+        runCatching {
+            GeckoExtensionManager.installSignedXpi(runtime, url).accept(
+                { extension ->
+                    val displayName = extension?.metaData?.name
+                        ?: extension?.id
+                        ?: "Extension installed"
+                    onResult(Result.success(displayName))
+                },
+                { throwable ->
+                    onResult(Result.failure(throwable ?: IllegalStateException("Extension installation failed")))
+                }
+            )
+        }.onFailure {
+            onResult(Result.failure(it))
+        }
     }
 
-    override fun hideFullscreenContent() {
-        val content = findViewById<FrameLayout>(android.R.id.content)
-        customView?.let(content::removeView)
-        customView = null
-        customViewCallback?.onCustomViewHidden()
-        customViewCallback = null
-        hideSystemBars()
+    private fun completeFilePrompt(uris: Array<Uri>) {
+        val prompt = pendingFilePrompt ?: return
+        val result = pendingFileResult ?: return
+        val response = if (uris.isEmpty()) {
+            prompt.dismiss()
+        } else if (prompt.type == GeckoSession.PromptDelegate.FilePrompt.Type.MULTIPLE) {
+            prompt.confirm(applicationContext, uris)
+        } else {
+            prompt.confirm(applicationContext, uris.first())
+        }
+
+        pendingFilePrompt = null
+        pendingFileResult = null
+        result.complete(response)
+    }
+
+    private fun dismissPendingFilePrompt() {
+        val prompt = pendingFilePrompt ?: return
+        val result = pendingFileResult ?: return
+        pendingFilePrompt = null
+        pendingFileResult = null
+        result.complete(prompt.dismiss())
     }
 
     private fun hideSystemBars() {

@@ -4,7 +4,6 @@ import android.content.Context
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import com.spotifybrowser.app.data.preferences.appPreferencesDataStore
-import java.io.File
 import java.util.UUID
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -53,7 +52,6 @@ class ProfileManager(private val context: Context) {
     }
 
     suspend fun deleteProfile(profileId: String): List<BrowserProfile> {
-        val deleted = profiles.first().firstOrNull { it.id == profileId }
         var remainingProfiles = emptyList<BrowserProfile>()
 
         dataStore.edit { preferences ->
@@ -62,17 +60,7 @@ class ProfileManager(private val context: Context) {
             preferences[Keys.ProfilesJson] = encodeProfiles(remainingProfiles)
         }
 
-        if (deleted != null) {
-            deleteProfileData(deleted)
-        }
-
         return remainingProfiles
-    }
-
-    suspend fun clearProfileData(profileId: String) {
-        profiles.first()
-            .firstOrNull { it.id == profileId }
-            ?.let(::deleteProfileData)
     }
 
     private fun newProfile(name: String): BrowserProfile {
@@ -81,25 +69,10 @@ class ProfileManager(private val context: Context) {
         return BrowserProfile(
             id = id,
             name = name,
-            webViewSuffix = "profile_$id",
+            storageContextId = "profile_$id",
             createdAtMillis = now,
             updatedAtMillis = now
         )
-    }
-
-    private fun deleteProfileData(profile: BrowserProfile) {
-        val candidates = listOf(
-            File(context.dataDir, "app_webview_${profile.webViewSuffix}"),
-            File(context.dataDir, "app_webview_${profile.webViewSuffix}_lock"),
-            File(context.codeCacheDir, "app_webview_${profile.webViewSuffix}"),
-            File(context.cacheDir, "app_webview_${profile.webViewSuffix}")
-        )
-
-        candidates.forEach { file ->
-            runCatching {
-                if (file.exists()) file.deleteRecursively()
-            }
-        }
     }
 
     private fun decodeProfiles(json: String?): List<BrowserProfile> {
@@ -114,7 +87,10 @@ class ProfileManager(private val context: Context) {
                         BrowserProfile(
                             id = item.getString("id"),
                             name = item.getString("name"),
-                            webViewSuffix = item.getString("webViewSuffix"),
+                            storageContextId = item.optString(
+                                "storageContextId",
+                                item.optString("webViewSuffix", "profile_${item.getString("id")}")
+                            ),
                             createdAtMillis = item.getLong("createdAtMillis"),
                             updatedAtMillis = item.getLong("updatedAtMillis")
                         )
@@ -131,7 +107,7 @@ class ProfileManager(private val context: Context) {
                 JSONObject()
                     .put("id", profile.id)
                     .put("name", profile.name)
-                    .put("webViewSuffix", profile.webViewSuffix)
+                    .put("storageContextId", profile.storageContextId)
                     .put("createdAtMillis", profile.createdAtMillis)
                     .put("updatedAtMillis", profile.updatedAtMillis)
             )

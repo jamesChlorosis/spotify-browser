@@ -8,7 +8,8 @@ import androidx.lifecycle.viewModelScope
 import com.spotifybrowser.app.data.preferences.BrowserSettings
 import com.spotifybrowser.app.data.preferences.PreferencesRepository
 import com.spotifybrowser.app.data.preferences.ThemeMode
-import com.spotifybrowser.app.data.profile.AppRestarter
+import com.spotifybrowser.app.data.gecko.GeckoRuntimeProvider
+import com.spotifybrowser.app.data.gecko.GeckoStorageMaintenance
 import com.spotifybrowser.app.data.profile.BrowserProfile
 import com.spotifybrowser.app.data.profile.ProfileManager
 import com.spotifybrowser.app.data.web.BrowserChromeState
@@ -22,11 +23,19 @@ import kotlinx.coroutines.launch
 
 data class AppUiState(
     val isReady: Boolean = false,
+    val extensionSetupCompleted: Boolean = false,
     val profiles: List<BrowserProfile> = emptyList(),
     val lastProfileId: String? = null,
     val activeProfile: BrowserProfile? = null,
     val settings: BrowserSettings = BrowserSettings(),
     val browserChrome: BrowserChromeState = BrowserChromeState()
+)
+
+private data class AppBaseState(
+    val profiles: List<BrowserProfile>,
+    val lastProfileId: String?,
+    val settings: BrowserSettings,
+    val extensionSetupCompleted: Boolean
 )
 
 class MainViewModel(
@@ -37,21 +46,33 @@ class MainViewModel(
 ) : AndroidViewModel(application) {
     private val activeProfileId = MutableStateFlow(initialProfileId)
     private val browserChrome = MutableStateFlow(BrowserChromeState())
-    private var webViewStarted = false
 
-    val uiState: StateFlow<AppUiState> = combine(
+    private val appBaseState = combine(
         profileManager.profiles,
         preferencesRepository.lastProfileId,
         preferencesRepository.settings,
-        activeProfileId,
-        browserChrome
-    ) { profiles, lastProfileId, settings, activeId, chrome ->
-        AppUiState(
-            isReady = profiles.isNotEmpty(),
+        preferencesRepository.extensionSetupCompleted
+    ) { profiles, lastProfileId, settings, extensionSetupCompleted ->
+        AppBaseState(
             profiles = profiles,
             lastProfileId = lastProfileId,
-            activeProfile = profiles.firstOrNull { it.id == activeId },
             settings = settings,
+            extensionSetupCompleted = extensionSetupCompleted
+        )
+    }
+
+    val uiState: StateFlow<AppUiState> = combine(
+        appBaseState,
+        activeProfileId,
+        browserChrome
+    ) { base, activeId, chrome ->
+        AppUiState(
+            isReady = base.profiles.isNotEmpty(),
+            extensionSetupCompleted = base.extensionSetupCompleted,
+            profiles = base.profiles,
+            lastProfileId = base.lastProfileId,
+            activeProfile = base.profiles.firstOrNull { it.id == activeId },
+            settings = base.settings,
             browserChrome = chrome
         )
     }.stateIn(
@@ -74,17 +95,8 @@ class MainViewModel(
     fun openProfile(profile: BrowserProfile) {
         viewModelScope.launch {
             preferencesRepository.setLastProfileId(profile.id)
-            val current = activeProfileId.value
-            if (webViewStarted && current != null && current != profile.id) {
-                AppRestarter.restartWithProfile(getApplication(), profile.id)
-            } else {
-                activeProfileId.value = profile.id
-            }
+            activeProfileId.value = profile.id
         }
-    }
-
-    fun markWebViewStarted() {
-        webViewStarted = true
     }
 
     fun updateBrowserChrome(state: BrowserChromeState) {
@@ -109,15 +121,24 @@ class MainViewModel(
             val deletingLastOpened = preferencesRepository.lastProfileId.first() == profile.id
             val remaining = profileManager.deleteProfile(profile.id)
             val replacement = remaining.first()
+            val runtime = GeckoRuntimeProvider.get(
+                context = getApplication(),
+                settings = BrowserSettings()
+            )
+            GeckoStorageMaintenance.clearProfile(runtime, profile)
 
             if (deletingLastOpened) {
                 preferencesRepository.setLastProfileId(replacement.id)
             }
 
             if (deletingActive) {
-                AppRestarter.restartWithProfile(getApplication(), replacement.id)
+                activeProfileId.value = replacement.id
             }
         }
+    }
+
+    fun finishExtensionSetup() {
+        viewModelScope.launch { preferencesRepository.setExtensionSetupCompleted(true) }
     }
 
     fun setDesktopUserAgent(enabled: Boolean) {
