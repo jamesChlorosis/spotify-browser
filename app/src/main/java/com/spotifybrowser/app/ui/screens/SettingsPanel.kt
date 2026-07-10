@@ -136,7 +136,7 @@ fun SettingsPanel(
             onDismissRequest = { confirmClearProfile = false },
             title = { Text("Clear current profile?") },
             text = {
-                Text("This removes cookies, site storage, history, form data, and cache for the active profile.")
+                Text("This removes cookies, site storage, history, form data, and cache from the active browser storage.")
             },
             confirmButton = {
                 Button(

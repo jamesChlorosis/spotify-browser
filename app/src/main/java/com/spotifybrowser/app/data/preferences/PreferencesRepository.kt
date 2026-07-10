@@ -28,10 +28,6 @@ class PreferencesRepository(context: Context) {
         .map { it[Keys.LastProfileId] }
         .distinctUntilChanged()
 
-    val extensionSetupCompleted: Flow<Boolean> = dataStore.data
-        .map { it[Keys.ExtensionSetupCompleted] ?: false }
-        .distinctUntilChanged()
-
     suspend fun setLastProfileId(profileId: String) {
         dataStore.edit { it[Keys.LastProfileId] = profileId }
     }
@@ -56,10 +52,6 @@ class PreferencesRepository(context: Context) {
         dataStore.edit { it[Keys.ThemeMode] = themeMode.name }
     }
 
-    suspend fun setExtensionSetupCompleted(completed: Boolean) {
-        dataStore.edit { it[Keys.ExtensionSetupCompleted] = completed }
-    }
-
     private object Keys {
         val LastProfileId = stringPreferencesKey("last_profile_id")
         val UseDesktopUserAgent = booleanPreferencesKey("use_desktop_user_agent")
@@ -67,6 +59,5 @@ class PreferencesRepository(context: Context) {
         val JavaScriptEnabled = booleanPreferencesKey("javascript_enabled")
         val AutoplayEnabled = booleanPreferencesKey("autoplay_enabled")
         val ThemeMode = stringPreferencesKey("theme_mode")
-        val ExtensionSetupCompleted = booleanPreferencesKey("extension_setup_completed")
     }
 }

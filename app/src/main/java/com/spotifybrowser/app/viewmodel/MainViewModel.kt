@@ -8,8 +8,6 @@ import androidx.lifecycle.viewModelScope
 import com.spotifybrowser.app.data.preferences.BrowserSettings
 import com.spotifybrowser.app.data.preferences.PreferencesRepository
 import com.spotifybrowser.app.data.preferences.ThemeMode
-import com.spotifybrowser.app.data.gecko.GeckoRuntimeProvider
-import com.spotifybrowser.app.data.gecko.GeckoStorageMaintenance
 import com.spotifybrowser.app.data.profile.BrowserProfile
 import com.spotifybrowser.app.data.profile.ProfileManager
 import com.spotifybrowser.app.data.web.BrowserChromeState
@@ -23,7 +21,6 @@ import kotlinx.coroutines.launch
 
 data class AppUiState(
     val isReady: Boolean = false,
-    val extensionSetupCompleted: Boolean = false,
     val profiles: List<BrowserProfile> = emptyList(),
     val lastProfileId: String? = null,
     val activeProfile: BrowserProfile? = null,
@@ -34,8 +31,7 @@ data class AppUiState(
 private data class AppBaseState(
     val profiles: List<BrowserProfile>,
     val lastProfileId: String?,
-    val settings: BrowserSettings,
-    val extensionSetupCompleted: Boolean
+    val settings: BrowserSettings
 )
 
 class MainViewModel(
@@ -50,14 +46,12 @@ class MainViewModel(
     private val appBaseState = combine(
         profileManager.profiles,
         preferencesRepository.lastProfileId,
-        preferencesRepository.settings,
-        preferencesRepository.extensionSetupCompleted
-    ) { profiles, lastProfileId, settings, extensionSetupCompleted ->
+        preferencesRepository.settings
+    ) { profiles, lastProfileId, settings ->
         AppBaseState(
             profiles = profiles,
             lastProfileId = lastProfileId,
-            settings = settings,
-            extensionSetupCompleted = extensionSetupCompleted
+            settings = settings
         )
     }
 
@@ -68,7 +62,6 @@ class MainViewModel(
     ) { base, activeId, chrome ->
         AppUiState(
             isReady = base.profiles.isNotEmpty(),
-            extensionSetupCompleted = base.extensionSetupCompleted,
             profiles = base.profiles,
             lastProfileId = base.lastProfileId,
             activeProfile = base.profiles.firstOrNull { it.id == activeId },
@@ -83,11 +76,16 @@ class MainViewModel(
 
     init {
         viewModelScope.launch {
-            profileManager.ensureDefaultProfile()
-            initialProfileId?.let { profileId ->
-                profileManager.profiles.first()
-                    .firstOrNull { it.id == profileId }
-                    ?.let { preferencesRepository.setLastProfileId(it.id) }
+            val defaultProfile = profileManager.ensureDefaultProfile()
+            val profiles = profileManager.profiles.first()
+            val lastProfileId = preferencesRepository.lastProfileId.first()
+            val selectedProfile = profiles.firstOrNull { it.id == initialProfileId }
+                ?: profiles.firstOrNull { it.id == lastProfileId }
+                ?: defaultProfile
+
+            activeProfileId.value = selectedProfile.id
+            if (lastProfileId != selectedProfile.id) {
+                preferencesRepository.setLastProfileId(selectedProfile.id)
             }
         }
     }
@@ -121,11 +119,6 @@ class MainViewModel(
             val deletingLastOpened = preferencesRepository.lastProfileId.first() == profile.id
             val remaining = profileManager.deleteProfile(profile.id)
             val replacement = remaining.first()
-            val runtime = GeckoRuntimeProvider.get(
-                context = getApplication(),
-                settings = BrowserSettings()
-            )
-            GeckoStorageMaintenance.clearProfile(runtime, profile)
 
             if (deletingLastOpened) {
                 preferencesRepository.setLastProfileId(replacement.id)
@@ -135,10 +128,6 @@ class MainViewModel(
                 activeProfileId.value = replacement.id
             }
         }
-    }
-
-    fun finishExtensionSetup() {
-        viewModelScope.launch { preferencesRepository.setExtensionSetupCompleted(true) }
     }
 
     fun setDesktopUserAgent(enabled: Boolean) {

@@ -1,36 +1,24 @@
 package com.spotifybrowser.app.ui.screens
 
 import androidx.compose.runtime.Composable
-import com.spotifybrowser.app.data.gecko.ExtensionInstallHost
-import com.spotifybrowser.app.data.gecko.GeckoBrowserHost
-import com.spotifybrowser.app.ui.theme.shouldUseDarkTheme
+import com.spotifybrowser.app.data.webview.WebViewBrowserHost
 import com.spotifybrowser.app.viewmodel.AppUiState
 
 @Composable
 fun SpotifyBrowserApp(
     uiState: AppUiState,
-    browserHost: GeckoBrowserHost,
-    extensionInstallHost: ExtensionInstallHost,
+    browserHost: WebViewBrowserHost,
     onOpenProfile: (com.spotifybrowser.app.data.profile.BrowserProfile) -> Unit,
     onCreateProfile: (String) -> Unit,
     onRenameProfile: (com.spotifybrowser.app.data.profile.BrowserProfile, String) -> Unit,
     onDeleteProfile: (com.spotifybrowser.app.data.profile.BrowserProfile) -> Unit,
     onBrowserChromeChanged: (com.spotifybrowser.app.data.web.BrowserChromeState) -> Unit,
-    onExtensionSetupFinished: () -> Unit,
     onDesktopUserAgentChanged: (Boolean) -> Unit,
     onZoomChanged: (Int) -> Unit,
     onJavaScriptChanged: (Boolean) -> Unit,
     onAutoplayChanged: (Boolean) -> Unit,
     onThemeChanged: (com.spotifybrowser.app.data.preferences.ThemeMode) -> Unit
 ) {
-    if (!uiState.extensionSetupCompleted) {
-        ExtensionSetupScreen(
-            extensionInstallHost = extensionInstallHost,
-            onContinue = onExtensionSetupFinished
-        )
-        return
-    }
-
     val activeProfile = uiState.activeProfile
     if (activeProfile == null) {
         ProfileSelectorScreen(

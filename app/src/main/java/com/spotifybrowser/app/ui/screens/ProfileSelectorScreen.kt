@@ -89,7 +89,7 @@ fun ProfileSelectorScreen(
                                 fontWeight = FontWeight.Bold
                             )
                             Text(
-                                text = "Choose an isolated profile to continue.",
+                                text = "Choose a profile to continue.",
                                 style = MaterialTheme.typography.bodyLarge,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )

@@ -1,6 +1,7 @@
 package com.spotifybrowser.app.ui.screens
 
 import android.widget.Toast
+import android.webkit.CookieManager
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -22,6 +23,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.ArrowForward
 import androidx.compose.material.icons.filled.Groups
@@ -57,15 +59,12 @@ import androidx.compose.ui.viewinterop.AndroidView
 import com.spotifybrowser.app.data.preferences.BrowserSettings
 import com.spotifybrowser.app.data.preferences.ThemeMode
 import com.spotifybrowser.app.data.profile.BrowserProfile
-import com.spotifybrowser.app.data.gecko.GeckoBrowserHandle
-import com.spotifybrowser.app.data.gecko.GeckoBrowserHost
-import com.spotifybrowser.app.data.gecko.GeckoDownloadHandler
-import com.spotifybrowser.app.data.gecko.GeckoRuntimeProvider
-import com.spotifybrowser.app.data.gecko.GeckoSessionFactory
-import com.spotifybrowser.app.data.gecko.GeckoStorageMaintenance
-import com.spotifybrowser.app.data.gecko.applyBrowserSettings
 import com.spotifybrowser.app.data.web.BrowserChromeState
 import com.spotifybrowser.app.data.web.SpotifyUrls
+import com.spotifybrowser.app.data.webview.WebViewBrowserFactory
+import com.spotifybrowser.app.data.webview.WebViewBrowserHandle
+import com.spotifybrowser.app.data.webview.WebViewBrowserHost
+import com.spotifybrowser.app.data.webview.applyBrowserSettings
 import com.spotifybrowser.app.ui.components.DeleteProfileDialog
 import com.spotifybrowser.app.ui.components.ProfileList
 import com.spotifybrowser.app.ui.components.ProfileNameDialog
@@ -78,7 +77,7 @@ fun BrowserScreen(
     profiles: List<BrowserProfile>,
     settings: BrowserSettings,
     browserChrome: BrowserChromeState,
-    host: GeckoBrowserHost,
+    host: WebViewBrowserHost,
     onBrowserChromeChanged: (BrowserChromeState) -> Unit,
     onOpenProfile: (BrowserProfile) -> Unit,
     onCreateProfile: (String) -> Unit,
@@ -91,17 +90,9 @@ fun BrowserScreen(
     onThemeChanged: (ThemeMode) -> Unit
 ) {
     val context = LocalContext.current
-    val runtime = remember(context) {
-        GeckoRuntimeProvider.get(context, settings)
-    }
-    GeckoRuntimeProvider.applyRuntimeSettings(runtime, settings)
+    val browserFactory = remember(host) { WebViewBrowserFactory(host) }
 
-    val downloadHandler = remember(context) { GeckoDownloadHandler(context) }
-    val sessionFactory = remember(host, downloadHandler) {
-        GeckoSessionFactory(host, downloadHandler)
-    }
-
-    var browserHandle by remember { mutableStateOf<GeckoBrowserHandle?>(null) }
+    var browserHandle by remember { mutableStateOf<WebViewBrowserHandle?>(null) }
     var controlsVisible by remember { mutableStateOf(false) }
     var settingsVisible by remember { mutableStateOf(false) }
     var profilesVisible by remember { mutableStateOf(false) }
@@ -122,14 +113,13 @@ fun BrowserScreen(
             .background(MaterialTheme.colorScheme.background)
     ) {
         key(activeProfile.id, reloadToken) {
-            var localHandle by remember { mutableStateOf<GeckoBrowserHandle?>(null) }
+            var localHandle by remember { mutableStateOf<WebViewBrowserHandle?>(null) }
 
             AndroidView(
                 modifier = Modifier.fillMaxSize(),
                 factory = { androidContext ->
-                    val handle = sessionFactory.create(
+                    val handle = browserFactory.create(
                         context = androidContext,
-                        runtime = runtime,
                         profile = activeProfile,
                         settings = settings,
                         onStateChanged = onBrowserChromeChanged
@@ -139,17 +129,13 @@ fun BrowserScreen(
                     handle.view
                 },
                 update = {
-                    GeckoRuntimeProvider.applyRuntimeSettings(runtime, settings)
-                    localHandle?.session?.applyBrowserSettings(settings)
+                    localHandle?.view?.applyBrowserSettings(settings)
                 }
             )
 
             DisposableEffect(Unit) {
                 onDispose {
-                    localHandle?.session?.apply {
-                        stop()
-                        close()
-                    }
+                    localHandle?.dispose()
                     if (browserHandle === localHandle) {
                         browserHandle = null
                     }
@@ -180,11 +166,11 @@ fun BrowserScreen(
             BrowserErrorOverlay(
                 message = error.description,
                 onRetry = {
-                    val session = browserHandle?.session
-                    if (session == null) {
+                    val handle = browserHandle
+                    if (handle == null) {
                         reloadToken += 1
                     } else {
-                        session.loadUri(error.failingUrl ?: SpotifyUrls.HOME)
+                        handle.loadUri(error.failingUrl ?: SpotifyUrls.HOME)
                     }
                 }
             )
@@ -198,9 +184,10 @@ fun BrowserScreen(
         ) {
             BrowserControlDock(
                 browserChrome = browserChrome,
-                onBack = { browserHandle?.session?.goBack() },
-                onForward = { browserHandle?.session?.goForward() },
-                onRefresh = { browserHandle?.session?.reload() },
+                onBack = { browserHandle?.goBack() },
+                onForward = { browserHandle?.goForward() },
+                onRefresh = { browserHandle?.reload() },
+                onSignIn = { browserHandle?.loadUri(SpotifyUrls.LOGIN) },
                 onProfiles = {
                     profilesVisible = true
                     controlsVisible = true
@@ -229,22 +216,20 @@ fun BrowserScreen(
                 onAutoplayChanged = onAutoplayChanged,
                 onThemeChanged = onThemeChanged,
                 onClearCache = {
-                    GeckoStorageMaintenance.clearCache(runtime).accept(
-                        { Toast.makeText(context, "Cache cleared", Toast.LENGTH_SHORT).show() },
-                        { Toast.makeText(context, "Cache could not be cleared", Toast.LENGTH_SHORT).show() }
-                    )
+                    browserHandle?.clearCache()
+                    Toast.makeText(context, "Cache cleared", Toast.LENGTH_SHORT).show()
                 },
                 onClearCookies = {
-                    GeckoStorageMaintenance.clearCookies(runtime).accept(
-                        { Toast.makeText(context, "Cookies cleared", Toast.LENGTH_SHORT).show() },
-                        { Toast.makeText(context, "Cookies could not be cleared", Toast.LENGTH_SHORT).show() }
-                    )
+                    CookieManager.getInstance().removeAllCookies {
+                        CookieManager.getInstance().flush()
+                        Toast.makeText(context, "Cookies cleared", Toast.LENGTH_SHORT).show()
+                    }
                 },
                 onClearProfile = {
-                    browserHandle?.session?.close()
-                    GeckoStorageMaintenance.clearProfile(runtime, activeProfile)
+                    browserHandle?.clearBrowsingData {
+                        Toast.makeText(context, "Profile cleared", Toast.LENGTH_SHORT).show()
+                    }
                     reloadToken += 1
-                    Toast.makeText(context, "Profile cleared", Toast.LENGTH_SHORT).show()
                 }
             )
             Spacer(Modifier.navigationBarsPadding())
@@ -262,7 +247,6 @@ fun BrowserScreen(
             onRenameProfile = onRenameProfile,
             onDeleteProfile = { profile ->
                 if (profile.id == activeProfile.id) {
-                    browserHandle?.session?.close()
                     browserHandle = null
                 }
                 onDeleteProfile(profile)
@@ -277,6 +261,7 @@ private fun BrowserControlDock(
     onBack: () -> Unit,
     onForward: () -> Unit,
     onRefresh: () -> Unit,
+    onSignIn: () -> Unit,
     onProfiles: () -> Unit,
     onSettings: () -> Unit
 ) {
@@ -318,6 +303,9 @@ private fun BrowserControlDock(
                 }
                 IconButton(onClick = onRefresh) {
                     Icon(Icons.Default.Refresh, contentDescription = "Refresh")
+                }
+                IconButton(onClick = onSignIn) {
+                    Icon(Icons.Default.AccountCircle, contentDescription = "Sign in")
                 }
                 IconButton(onClick = onProfiles) {
                     Icon(Icons.Default.Groups, contentDescription = "Profiles")
@@ -397,7 +385,7 @@ private fun ProfileManagerSheet(
         ) {
             Text("Profiles", style = MaterialTheme.typography.headlineSmall)
             Text(
-                "Each profile keeps separate cookies, cache, and site storage.",
+                "Manage saved Spotify browser profiles.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )

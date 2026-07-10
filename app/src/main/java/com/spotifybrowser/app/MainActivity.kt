@@ -4,6 +4,8 @@ import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
+import android.webkit.ValueCallback
+import android.webkit.WebChromeClient
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -16,21 +18,15 @@ import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.spotifybrowser.app.data.gecko.ExtensionInstallHost
-import com.spotifybrowser.app.data.gecko.GeckoBrowserHost
-import com.spotifybrowser.app.data.gecko.GeckoExtensionManager
-import com.spotifybrowser.app.data.gecko.GeckoRuntimeProvider
 import com.spotifybrowser.app.data.preferences.PreferencesRepository
-import com.spotifybrowser.app.data.preferences.BrowserSettings
 import com.spotifybrowser.app.data.profile.ProfileManager
+import com.spotifybrowser.app.data.webview.WebViewBrowserHost
 import com.spotifybrowser.app.ui.screens.SpotifyBrowserApp
 import com.spotifybrowser.app.ui.theme.SpotifyBrowserTheme
 import com.spotifybrowser.app.viewmodel.MainViewModel
 import com.spotifybrowser.app.viewmodel.MainViewModelFactory
-import org.mozilla.geckoview.GeckoResult
-import org.mozilla.geckoview.GeckoSession
 
-class MainActivity : ComponentActivity(), GeckoBrowserHost, ExtensionInstallHost {
+class MainActivity : ComponentActivity(), WebViewBrowserHost {
     private val profileManager by lazy { ProfileManager(applicationContext) }
     private val preferencesRepository by lazy { PreferencesRepository(applicationContext) }
 
@@ -43,19 +39,18 @@ class MainActivity : ComponentActivity(), GeckoBrowserHost, ExtensionInstallHost
         )
     }
 
-    private var pendingFilePrompt: GeckoSession.PromptDelegate.FilePrompt? = null
-    private var pendingFileResult: GeckoResult<GeckoSession.PromptDelegate.PromptResponse>? = null
+    private var pendingWebViewFileCallback: ValueCallback<Array<Uri>>? = null
 
     private val singleFileLauncher = registerForActivityResult(
         ActivityResultContracts.OpenDocument()
     ) { uri ->
-        completeFilePrompt(if (uri == null) emptyArray() else arrayOf(uri))
+        completeSelectedFiles(if (uri == null) emptyArray() else arrayOf(uri))
     }
 
     private val multipleFilesLauncher = registerForActivityResult(
         ActivityResultContracts.OpenMultipleDocuments()
     ) { uris ->
-        completeFilePrompt(uris.toTypedArray())
+        completeSelectedFiles(uris.toTypedArray())
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -71,13 +66,11 @@ class MainActivity : ComponentActivity(), GeckoBrowserHost, ExtensionInstallHost
                 SpotifyBrowserApp(
                     uiState = uiState,
                     browserHost = this,
-                    extensionInstallHost = this,
                     onOpenProfile = viewModel::openProfile,
                     onCreateProfile = viewModel::createProfile,
                     onRenameProfile = viewModel::renameProfile,
                     onDeleteProfile = viewModel::deleteProfile,
                     onBrowserChromeChanged = viewModel::updateBrowserChrome,
-                    onExtensionSetupFinished = viewModel::finishExtensionSetup,
                     onDesktopUserAgentChanged = viewModel::setDesktopUserAgent,
                     onZoomChanged = viewModel::setDefaultZoomPercent,
                     onJavaScriptChanged = viewModel::setJavaScriptEnabled,
@@ -94,7 +87,7 @@ class MainActivity : ComponentActivity(), GeckoBrowserHost, ExtensionInstallHost
     }
 
     override fun onDestroy() {
-        dismissPendingFilePrompt()
+        dismissPendingWebViewFilePrompt()
         super.onDestroy()
     }
 
@@ -112,86 +105,51 @@ class MainActivity : ComponentActivity(), GeckoBrowserHost, ExtensionInstallHost
         hideSystemBars()
     }
 
-    override fun onFilePrompt(
-        prompt: GeckoSession.PromptDelegate.FilePrompt
-    ): GeckoResult<GeckoSession.PromptDelegate.PromptResponse> {
-        dismissPendingFilePrompt()
-        val result = GeckoResult<GeckoSession.PromptDelegate.PromptResponse>()
-        pendingFilePrompt = prompt
-        pendingFileResult = result
+    override fun onShowFileChooser(
+        filePathCallback: ValueCallback<Array<Uri>>,
+        fileChooserParams: WebChromeClient.FileChooserParams
+    ): Boolean {
+        dismissPendingWebViewFilePrompt()
+        pendingWebViewFileCallback = filePathCallback
 
-        if (prompt.type == GeckoSession.PromptDelegate.FilePrompt.Type.FOLDER) {
-            Toast.makeText(this, "Folder upload is not supported", Toast.LENGTH_SHORT).show()
-            completeFilePrompt(emptyArray())
-            return result
-        }
-
-        val mimeTypes = prompt.mimeTypes
+        val mimeTypes = fileChooserParams.acceptTypes
+            ?.filter { it.isNotBlank() }
             ?.takeIf { it.isNotEmpty() }
+            ?.toTypedArray()
             ?: arrayOf("*/*")
 
         runCatching {
-            if (prompt.type == GeckoSession.PromptDelegate.FilePrompt.Type.MULTIPLE) {
+            if (fileChooserParams.mode == WebChromeClient.FileChooserParams.MODE_OPEN_MULTIPLE) {
                 multipleFilesLauncher.launch(mimeTypes)
             } else {
                 singleFileLauncher.launch(mimeTypes)
             }
         }.onFailure {
             Toast.makeText(this, "No file picker is available", Toast.LENGTH_LONG).show()
-            completeFilePrompt(emptyArray())
+            completeWebViewFilePrompt(emptyArray())
         }
 
-        return result
+        return true
     }
 
-    override fun installExtensionFromUrl(
-        url: String,
-        onResult: (Result<String>) -> Unit
-    ) {
-        val runtime = GeckoRuntimeProvider.get(
-            context = applicationContext,
-            settings = BrowserSettings()
-        )
-
-        runCatching {
-            GeckoExtensionManager.installSignedXpi(runtime, url).accept(
-                { extension ->
-                    val displayName = extension?.metaData?.name
-                        ?: extension?.id
-                        ?: "Extension installed"
-                    onResult(Result.success(displayName))
-                },
-                { throwable ->
-                    onResult(Result.failure(throwable ?: IllegalStateException("Extension installation failed")))
-                }
-            )
-        }.onFailure {
-            onResult(Result.failure(it))
-        }
+    private fun completeSelectedFiles(uris: Array<Uri>) {
+        completeWebViewFilePrompt(uris)
     }
 
-    private fun completeFilePrompt(uris: Array<Uri>) {
-        val prompt = pendingFilePrompt ?: return
-        val result = pendingFileResult ?: return
-        val response = if (uris.isEmpty()) {
-            prompt.dismiss()
-        } else if (prompt.type == GeckoSession.PromptDelegate.FilePrompt.Type.MULTIPLE) {
-            prompt.confirm(applicationContext, uris)
+    private fun completeWebViewFilePrompt(uris: Array<Uri>) {
+        val callback = pendingWebViewFileCallback ?: return
+        pendingWebViewFileCallback = null
+        if (uris.isEmpty()) {
+            callback.onReceiveValue(null)
         } else {
-            prompt.confirm(applicationContext, uris.first())
+            callback.onReceiveValue(uris)
         }
-
-        pendingFilePrompt = null
-        pendingFileResult = null
-        result.complete(response)
     }
 
-    private fun dismissPendingFilePrompt() {
-        val prompt = pendingFilePrompt ?: return
-        val result = pendingFileResult ?: return
-        pendingFilePrompt = null
-        pendingFileResult = null
-        result.complete(prompt.dismiss())
+    private fun dismissPendingWebViewFilePrompt() {
+        val callback = pendingWebViewFileCallback ?: return
+        pendingWebViewFileCallback = null
+        callback.onReceiveValue(null)
     }
 
     private fun hideSystemBars() {

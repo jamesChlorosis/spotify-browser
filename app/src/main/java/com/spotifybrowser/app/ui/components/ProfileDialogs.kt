@@ -78,7 +78,7 @@ fun DeleteProfileDialog(
         onDismissRequest = onDismiss,
         title = { Text("Delete ${profile.name}?") },
         text = {
-            Text("This clears the profile entry and removes its isolated browser data when the profile is not in use.")
+            Text("This removes the profile entry. Clear browser data from Settings when you want to remove the active profile's Spotify session.")
         },
         confirmButton = {
             Button(onClick = onConfirm) {

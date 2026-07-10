@@ -89,7 +89,7 @@ fun ProfileList(
                                     fontWeight = FontWeight.SemiBold
                                 )
                                 Text(
-                                    text = if (profile.id == activeProfileId) "Active profile" else "Isolated browser data",
+                                    text = if (profile.id == activeProfileId) "Active profile" else "Browser profile",
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
