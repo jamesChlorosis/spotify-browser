@@ -1,6 +1,6 @@
 # Spotify Browser
 
-Spotify Browser is an unofficial dedicated Android launcher for the Spotify Web Player at `https://open.spotify.com/`. It starts with local profiles like the original app, then opens Spotify in a compatible installed Android browser for playback so protected content/Widevine checks are handled by Chrome, Samsung Internet, or Firefox.
+Spotify Browser is an unofficial dedicated Android launcher for the Spotify Web Player at `https://open.spotify.com/`. It starts with local profiles like the original app, then opens Spotify in a compatible installed Android browser for playback so protected content/Widevine checks are handled by Chrome or Samsung Internet instead of the embedded fallback view.
 
 The app stays inside Spotify's platform boundaries: it does not inject scripts into Spotify pages, modify Spotify network traffic, bypass advertisements, bypass DRM, bypass authentication, or alter subscription behavior.
 
@@ -11,10 +11,10 @@ The app stays inside Spotify's platform boundaries: it does not inject scripts i
 - Full-screen immersive standalone app experience
 - Profile picker on launch for the old multi-profile flow
 - Faster startup by avoiding browser engine startup until a profile is selected
-- Spotify playback handoff to supported Android browsers for protected content
+- Spotify playback handoff to Chrome/Samsung Internet for protected content
 - In-app WebView fallback for browsing/settings flows
 - Spotify sign-in button that opens Spotify Accounts in the compatible browser
-- Extension URL and add-on store shortcuts for downloading browser extensions
+- Chrome Web Store, custom extension URL, and Kiwi Browser shortcuts for downloading browser extensions
 - Persistent login, cookies, DOM storage, local storage, and cache
 - Back, forward, refresh, file upload, and media playback
 - External non-Spotify links open in the user's default browser

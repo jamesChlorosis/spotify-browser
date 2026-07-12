@@ -9,8 +9,12 @@
         <package android:name="com.chrome.beta" />
         <package android:name="com.chrome.dev" />
         <package android:name="com.sec.android.app.sbrowser" />
-        <package android:name="org.mozilla.firefox" />
-        <package android:name="org.mozilla.firefox_beta" />
+        <package android:name="com.kiwibrowser.browser" />
+        <package android:name="com.microsoft.emmx" />
+        <package android:name="com.microsoft.emmx.beta" />
+        <package android:name="com.microsoft.emmx.dev" />
+        <package android:name="com.microsoft.emmx.canary" />
+        <package android:name="com.yandex.browser" />
         <intent>
             <action android:name="android.intent.action.VIEW" />
             <data android:scheme="https" />

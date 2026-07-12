@@ -57,7 +57,7 @@ fun ProfileSelectorScreen(
     var deleteTarget by remember { mutableStateOf<BrowserProfile?>(null) }
     var selectedProfileId by remember { mutableStateOf(lastProfileId) }
     var extensionDialogOpen by remember { mutableStateOf(false) }
-    var extensionUrl by remember { mutableStateOf(SpotifyUrls.FIREFOX_ADDONS) }
+    var extensionUrl by remember { mutableStateOf(SpotifyUrls.CHROME_WEB_STORE) }
 
     LaunchedEffect(profiles, lastProfileId) {
         selectedProfileId = lastProfileId ?: profiles.firstOrNull()?.id
@@ -110,16 +110,23 @@ fun ProfileSelectorScreen(
                             ) {
                                 OutlinedButton(
                                     modifier = Modifier.weight(1f),
-                                    onClick = { onOpenExtensionUrl(SpotifyUrls.FIREFOX_ADDONS) }
+                                    onClick = { onOpenExtensionUrl(SpotifyUrls.CHROME_WEB_STORE) }
                                 ) {
-                                    Text("Firefox add-ons")
+                                    Text("Chrome extensions")
                                 }
                                 OutlinedButton(
                                     modifier = Modifier.weight(1f),
-                                    onClick = { extensionDialogOpen = true }
+                                    onClick = { onOpenExtensionUrl(SpotifyUrls.KIWI_PLAY_STORE) }
                                 ) {
-                                    Text("Extension URL")
+                                    Text("Get Kiwi")
                                 }
+                            }
+                            Spacer(Modifier.height(10.dp))
+                            OutlinedButton(
+                                modifier = Modifier.fillMaxWidth(),
+                                onClick = { extensionDialogOpen = true }
+                            ) {
+                                Text("Open any extension URL")
                             }
                             Spacer(Modifier.height(10.dp))
 

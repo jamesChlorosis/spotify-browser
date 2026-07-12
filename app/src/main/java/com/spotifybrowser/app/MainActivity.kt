@@ -31,9 +31,16 @@ class MainActivity : ComponentActivity(), WebViewBrowserHost {
         "com.android.chrome",
         "com.chrome.beta",
         "com.chrome.dev",
-        "com.sec.android.app.sbrowser",
-        "org.mozilla.firefox",
-        "org.mozilla.firefox_beta"
+        "com.sec.android.app.sbrowser"
+    )
+
+    private val extensionBrowserPackages = listOf(
+        "com.kiwibrowser.browser",
+        "com.microsoft.emmx",
+        "com.microsoft.emmx.beta",
+        "com.microsoft.emmx.dev",
+        "com.microsoft.emmx.canary",
+        "com.yandex.browser"
     )
 
     private val profileManager by lazy { ProfileManager(applicationContext) }
@@ -110,6 +117,11 @@ class MainActivity : ComponentActivity(), WebViewBrowserHost {
         }
 
         if (!launched) {
+            Toast.makeText(
+                this,
+                "Opening Spotify in your browser. Chrome or Samsung Internet is recommended for protected content.",
+                Toast.LENGTH_LONG
+            ).show()
             launchUri(uri, packageName = null, showError = true)
         }
     }
@@ -120,7 +132,18 @@ class MainActivity : ComponentActivity(), WebViewBrowserHost {
             Toast.makeText(this, "Enter a valid http or https extension URL", Toast.LENGTH_LONG).show()
             return
         }
-        launchUri(uri, packageName = null, showError = true)
+        val launched = extensionBrowserPackages.any { packageName ->
+            launchUri(uri, packageName = packageName, showError = false)
+        }
+
+        if (!launched) {
+            Toast.makeText(
+                this,
+                "Install Kiwi Browser or another extension-capable browser to add Chrome Web Store extensions.",
+                Toast.LENGTH_LONG
+            ).show()
+            launchUri(uri, packageName = null, showError = true)
+        }
     }
 
     private fun launchUri(
@@ -140,7 +163,7 @@ class MainActivity : ComponentActivity(), WebViewBrowserHost {
             if (showError && it is ActivityNotFoundException) {
                 Toast.makeText(
                     this,
-                    "Install Chrome, Samsung Internet, or Firefox to play Spotify Web Player",
+                    "No browser can open this link",
                     Toast.LENGTH_LONG
                 ).show()
             }
