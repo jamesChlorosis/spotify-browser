@@ -18,6 +18,7 @@ import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.browser.customtabs.CustomTabsIntent
 import com.spotifybrowser.app.data.preferences.PreferencesRepository
 import com.spotifybrowser.app.data.profile.ProfileManager
 import com.spotifybrowser.app.data.webview.WebViewBrowserHost
@@ -35,12 +36,12 @@ class MainActivity : ComponentActivity(), WebViewBrowserHost {
     )
 
     private val extensionBrowserPackages = listOf(
-        "com.kiwibrowser.browser",
         "com.microsoft.emmx",
         "com.microsoft.emmx.beta",
         "com.microsoft.emmx.dev",
         "com.microsoft.emmx.canary",
-        "com.yandex.browser"
+        "org.mozilla.firefox",
+        "org.mozilla.firefox_beta"
     )
 
     private val profileManager by lazy { ProfileManager(applicationContext) }
@@ -113,7 +114,7 @@ class MainActivity : ComponentActivity(), WebViewBrowserHost {
 
     override fun openSpotifyInCompatibleBrowser(uri: Uri) {
         val launched = spotifyBrowserPackages.any { packageName ->
-            launchUri(uri, packageName = packageName, showError = false)
+            launchCustomTab(uri, packageName = packageName)
         }
 
         if (!launched) {
@@ -139,11 +140,28 @@ class MainActivity : ComponentActivity(), WebViewBrowserHost {
         if (!launched) {
             Toast.makeText(
                 this,
-                "Install Kiwi Browser or another extension-capable browser to add Chrome Web Store extensions.",
+                "Install Microsoft Edge or Firefox to add mobile-supported extensions.",
                 Toast.LENGTH_LONG
             ).show()
             launchUri(uri, packageName = null, showError = true)
         }
+    }
+
+    private fun launchCustomTab(
+        uri: Uri,
+        packageName: String
+    ): Boolean {
+        val customTabsIntent = CustomTabsIntent.Builder()
+            .setShowTitle(true)
+            .setUrlBarHidingEnabled(false)
+            .build()
+        customTabsIntent.intent.setPackage(packageName)
+        customTabsIntent.intent.addCategory(Intent.CATEGORY_BROWSABLE)
+
+        return runCatching {
+            customTabsIntent.launchUrl(this, uri)
+            true
+        }.getOrElse { false }
     }
 
     private fun launchUri(

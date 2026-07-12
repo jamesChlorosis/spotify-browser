@@ -195,7 +195,7 @@ fun BrowserScreen(
                     host.openSpotifyInCompatibleBrowser(Uri.parse(url))
                 },
                 onSignIn = { host.openSpotifyInCompatibleBrowser(Uri.parse(SpotifyUrls.LOGIN)) },
-                onExtensions = { host.openExtensionUrl(SpotifyUrls.CHROME_WEB_STORE) },
+                onExtensions = { host.openExtensionUrl(SpotifyUrls.EDGE_ADDONS) },
                 onProfiles = {
                     profilesVisible = true
                     controlsVisible = true

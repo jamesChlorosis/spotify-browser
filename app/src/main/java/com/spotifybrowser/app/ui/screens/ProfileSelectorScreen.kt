@@ -57,7 +57,7 @@ fun ProfileSelectorScreen(
     var deleteTarget by remember { mutableStateOf<BrowserProfile?>(null) }
     var selectedProfileId by remember { mutableStateOf(lastProfileId) }
     var extensionDialogOpen by remember { mutableStateOf(false) }
-    var extensionUrl by remember { mutableStateOf(SpotifyUrls.CHROME_WEB_STORE) }
+    var extensionUrl by remember { mutableStateOf(SpotifyUrls.EDGE_ADDONS) }
 
     LaunchedEffect(profiles, lastProfileId) {
         selectedProfileId = lastProfileId ?: profiles.firstOrNull()?.id
@@ -110,23 +110,34 @@ fun ProfileSelectorScreen(
                             ) {
                                 OutlinedButton(
                                     modifier = Modifier.weight(1f),
-                                    onClick = { onOpenExtensionUrl(SpotifyUrls.CHROME_WEB_STORE) }
+                                    onClick = { onOpenExtensionUrl(SpotifyUrls.EDGE_ADDONS) }
                                 ) {
-                                    Text("Chrome extensions")
+                                    Text("Edge add-ons")
                                 }
                                 OutlinedButton(
                                     modifier = Modifier.weight(1f),
-                                    onClick = { onOpenExtensionUrl(SpotifyUrls.KIWI_PLAY_STORE) }
+                                    onClick = { onOpenExtensionUrl(SpotifyUrls.FIREFOX_ADDONS) }
                                 ) {
-                                    Text("Get Kiwi")
+                                    Text("Firefox add-ons")
                                 }
                             }
                             Spacer(Modifier.height(10.dp))
-                            OutlinedButton(
+                            Row(
                                 modifier = Modifier.fillMaxWidth(),
-                                onClick = { extensionDialogOpen = true }
+                                horizontalArrangement = Arrangement.spacedBy(10.dp)
                             ) {
-                                Text("Open any extension URL")
+                                OutlinedButton(
+                                    modifier = Modifier.weight(1f),
+                                    onClick = { onOpenExtensionUrl(SpotifyUrls.EDGE_PLAY_STORE) }
+                                ) {
+                                    Text("Get Edge")
+                                }
+                                OutlinedButton(
+                                    modifier = Modifier.weight(1f),
+                                    onClick = { extensionDialogOpen = true }
+                                ) {
+                                    Text("Extension URL")
+                                }
                             }
                             Spacer(Modifier.height(10.dp))
 

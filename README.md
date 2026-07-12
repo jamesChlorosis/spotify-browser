@@ -14,7 +14,7 @@ The app stays inside Spotify's platform boundaries: it does not inject scripts i
 - Spotify playback handoff to Chrome/Samsung Internet for protected content
 - In-app WebView fallback for browsing/settings flows
 - Spotify sign-in button that opens Spotify Accounts in the compatible browser
-- Chrome Web Store, custom extension URL, and Kiwi Browser shortcuts for downloading browser extensions
+- Edge Add-ons, Firefox Add-ons, and custom extension URL shortcuts for downloading browser extensions
 - Persistent login, cookies, DOM storage, local storage, and cache
 - Back, forward, refresh, file upload, and media playback
 - External non-Spotify links open in the user's default browser
