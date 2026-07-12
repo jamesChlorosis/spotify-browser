@@ -1,6 +1,8 @@
 package com.spotifybrowser.app.ui.screens
 
 import androidx.compose.runtime.Composable
+import android.net.Uri
+import com.spotifybrowser.app.data.web.SpotifyUrls
 import com.spotifybrowser.app.data.webview.WebViewBrowserHost
 import com.spotifybrowser.app.viewmodel.AppUiState
 
@@ -25,10 +27,14 @@ fun SpotifyBrowserApp(
             isReady = uiState.isReady,
             profiles = uiState.profiles,
             lastProfileId = uiState.lastProfileId,
-            onOpenProfile = onOpenProfile,
+            onOpenProfile = { profile ->
+                onOpenProfile(profile)
+                browserHost.openSpotifyInCompatibleBrowser(Uri.parse(SpotifyUrls.HOME))
+            },
             onCreateProfile = onCreateProfile,
             onRenameProfile = onRenameProfile,
-            onDeleteProfile = onDeleteProfile
+            onDeleteProfile = onDeleteProfile,
+            onOpenExtensionUrl = browserHost::openExtensionUrl
         )
     } else {
         BrowserScreen(

@@ -35,6 +35,7 @@ fun ProfileList(
     activeProfileId: String?,
     modifier: Modifier = Modifier,
     contentPadding: PaddingValues = PaddingValues(),
+    openLabel: String? = null,
     onOpenProfile: (BrowserProfile) -> Unit,
     onCreateProfile: () -> Unit,
     onRenameProfile: (BrowserProfile) -> Unit,
@@ -101,7 +102,7 @@ fun ProfileList(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             OutlinedButton(onClick = { onOpenProfile(profile) }) {
-                                Text(if (profile.id == activeProfileId) "Open" else "Switch")
+                                Text(openLabel ?: if (profile.id == activeProfileId) "Open" else "Switch")
                             }
                             IconButton(onClick = { onRenameProfile(profile) }) {
                                 Icon(Icons.Default.Edit, contentDescription = "Rename profile")

@@ -76,16 +76,14 @@ class MainViewModel(
 
     init {
         viewModelScope.launch {
-            val defaultProfile = profileManager.ensureDefaultProfile()
-            val profiles = profileManager.profiles.first()
-            val lastProfileId = preferencesRepository.lastProfileId.first()
-            val selectedProfile = profiles.firstOrNull { it.id == initialProfileId }
-                ?: profiles.firstOrNull { it.id == lastProfileId }
-                ?: defaultProfile
-
-            activeProfileId.value = selectedProfile.id
-            if (lastProfileId != selectedProfile.id) {
-                preferencesRepository.setLastProfileId(selectedProfile.id)
+            profileManager.ensureDefaultProfile()
+            initialProfileId?.let { profileId ->
+                profileManager.profiles.first()
+                    .firstOrNull { it.id == profileId }
+                    ?.let { profile ->
+                        activeProfileId.value = profile.id
+                        preferencesRepository.setLastProfileId(profile.id)
+                    }
             }
         }
     }

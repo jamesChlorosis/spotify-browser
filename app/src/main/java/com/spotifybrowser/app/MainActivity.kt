@@ -27,6 +27,15 @@ import com.spotifybrowser.app.viewmodel.MainViewModel
 import com.spotifybrowser.app.viewmodel.MainViewModelFactory
 
 class MainActivity : ComponentActivity(), WebViewBrowserHost {
+    private val spotifyBrowserPackages = listOf(
+        "com.android.chrome",
+        "com.chrome.beta",
+        "com.chrome.dev",
+        "com.sec.android.app.sbrowser",
+        "org.mozilla.firefox",
+        "org.mozilla.firefox_beta"
+    )
+
     private val profileManager by lazy { ProfileManager(applicationContext) }
     private val preferencesRepository by lazy { PreferencesRepository(applicationContext) }
 
@@ -92,13 +101,69 @@ class MainActivity : ComponentActivity(), WebViewBrowserHost {
     }
 
     override fun openExternalUri(uri: Uri) {
+        launchUri(uri, packageName = null, showError = true)
+    }
+
+    override fun openSpotifyInCompatibleBrowser(uri: Uri) {
+        val launched = spotifyBrowserPackages.any { packageName ->
+            launchUri(uri, packageName = packageName, showError = false)
+        }
+
+        if (!launched) {
+            launchUri(uri, packageName = null, showError = true)
+        }
+    }
+
+    override fun openExtensionUrl(url: String) {
+        val uri = url.toWebUriOrNull()
+        if (uri == null) {
+            Toast.makeText(this, "Enter a valid http or https extension URL", Toast.LENGTH_LONG).show()
+            return
+        }
+        launchUri(uri, packageName = null, showError = true)
+    }
+
+    private fun launchUri(
+        uri: Uri,
+        packageName: String?,
+        showError: Boolean
+    ): Boolean {
         val intent = Intent(Intent.ACTION_VIEW, uri).addCategory(Intent.CATEGORY_BROWSABLE)
-        runCatching { startActivity(intent) }
-            .onFailure {
-                if (it is ActivityNotFoundException) {
-                    Toast.makeText(this, "No app can open this link", Toast.LENGTH_LONG).show()
-                }
+        if (packageName != null) {
+            intent.setPackage(packageName)
+        }
+
+        return runCatching {
+            startActivity(intent)
+            true
+        }.getOrElse {
+            if (showError && it is ActivityNotFoundException) {
+                Toast.makeText(
+                    this,
+                    "Install Chrome, Samsung Internet, or Firefox to play Spotify Web Player",
+                    Toast.LENGTH_LONG
+                ).show()
             }
+            false
+        }
+    }
+
+    private fun String.toWebUriOrNull(): Uri? {
+        val trimmed = trim()
+        if (trimmed.isEmpty()) return null
+
+        val normalized = if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) {
+            trimmed
+        } else {
+            "https://$trimmed"
+        }
+
+        return runCatching {
+            Uri.parse(normalized).takeIf { uri ->
+                val scheme = uri.scheme?.lowercase()
+                scheme == "http" || scheme == "https"
+            }
+        }.getOrNull()
     }
 
     override fun setPageFullscreen(enabled: Boolean) {

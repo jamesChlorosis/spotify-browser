@@ -1,5 +1,6 @@
 package com.spotifybrowser.app.ui.screens
 
+import android.net.Uri
 import android.widget.Toast
 import android.webkit.CookieManager
 import androidx.compose.animation.AnimatedVisibility
@@ -26,7 +27,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.ArrowForward
+import androidx.compose.material.icons.filled.Extension
 import androidx.compose.material.icons.filled.Groups
+import androidx.compose.material.icons.filled.OpenInBrowser
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Button
@@ -187,7 +190,12 @@ fun BrowserScreen(
                 onBack = { browserHandle?.goBack() },
                 onForward = { browserHandle?.goForward() },
                 onRefresh = { browserHandle?.reload() },
-                onSignIn = { browserHandle?.loadUri(SpotifyUrls.LOGIN) },
+                onOpenSpotify = {
+                    val url = browserChrome.currentUrl.takeIf { it.isNotBlank() } ?: SpotifyUrls.HOME
+                    host.openSpotifyInCompatibleBrowser(Uri.parse(url))
+                },
+                onSignIn = { host.openSpotifyInCompatibleBrowser(Uri.parse(SpotifyUrls.LOGIN)) },
+                onExtensions = { host.openExtensionUrl(SpotifyUrls.FIREFOX_ADDONS) },
                 onProfiles = {
                     profilesVisible = true
                     controlsVisible = true
@@ -261,7 +269,9 @@ private fun BrowserControlDock(
     onBack: () -> Unit,
     onForward: () -> Unit,
     onRefresh: () -> Unit,
+    onOpenSpotify: () -> Unit,
     onSignIn: () -> Unit,
+    onExtensions: () -> Unit,
     onProfiles: () -> Unit,
     onSettings: () -> Unit
 ) {
@@ -304,8 +314,14 @@ private fun BrowserControlDock(
                 IconButton(onClick = onRefresh) {
                     Icon(Icons.Default.Refresh, contentDescription = "Refresh")
                 }
+                IconButton(onClick = onOpenSpotify) {
+                    Icon(Icons.Default.OpenInBrowser, contentDescription = "Open in compatible browser")
+                }
                 IconButton(onClick = onSignIn) {
                     Icon(Icons.Default.AccountCircle, contentDescription = "Sign in")
+                }
+                IconButton(onClick = onExtensions) {
+                    Icon(Icons.Default.Extension, contentDescription = "Extensions")
                 }
                 IconButton(onClick = onProfiles) {
                     Icon(Icons.Default.Groups, contentDescription = "Profiles")

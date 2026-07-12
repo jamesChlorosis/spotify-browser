@@ -1,6 +1,6 @@
 # Spotify Browser
 
-Spotify Browser is an unofficial dedicated Android app for the Spotify Web Player at `https://open.spotify.com/`. It uses Android's Chromium-backed WebView with Spotify-friendly media settings and a Chrome-style user agent so the web player has a better chance of passing Spotify's browser playback checks.
+Spotify Browser is an unofficial dedicated Android launcher for the Spotify Web Player at `https://open.spotify.com/`. It starts with local profiles like the original app, then opens Spotify in a compatible installed Android browser for playback so protected content/Widevine checks are handled by Chrome, Samsung Internet, or Firefox.
 
 The app stays inside Spotify's platform boundaries: it does not inject scripts into Spotify pages, modify Spotify network traffic, bypass advertisements, bypass DRM, bypass authentication, or alter subscription behavior.
 
@@ -9,9 +9,12 @@ The app stays inside Spotify's platform boundaries: it does not inject scripts i
 - Kotlin, AndroidX, Jetpack Compose, Material 3
 - Android 10+ (`minSdk 29`)
 - Full-screen immersive standalone app experience
-- Chromium-backed Android WebView browser engine
-- Direct launch into the last-used profile for faster startup
-- Spotify sign-in button that opens Spotify Accounts and returns to the web player
+- Profile picker on launch for the old multi-profile flow
+- Faster startup by avoiding browser engine startup until a profile is selected
+- Spotify playback handoff to supported Android browsers for protected content
+- In-app WebView fallback for browsing/settings flows
+- Spotify sign-in button that opens Spotify Accounts in the compatible browser
+- Extension URL and add-on store shortcuts for downloading browser extensions
 - Persistent login, cookies, DOM storage, local storage, and cache
 - Back, forward, refresh, file upload, and media playback
 - External non-Spotify links open in the user's default browser
@@ -26,7 +29,7 @@ app/src/main/java/com/spotifybrowser/app/
   data/preferences/        DataStore settings
   data/profile/            profile metadata
   data/web/                shared URL/link policy and browser state models
-  data/webview/            Chromium WebView runtime, settings, and browser state
+  data/webview/            WebView fallback, settings, and browser state
   ui/components/           reusable Compose components
   ui/screens/              profile selector, browser, settings
   ui/theme/                Material 3 theme
@@ -82,4 +85,4 @@ app/build/outputs/apk/release/app-release.apk
 
 ## Compliance Notes
 
-This project intentionally avoids hidden extensions, page injection, ad blocking, traffic interception, authentication bypassing, subscription bypassing, and DRM bypassing. It uses Android WebView APIs for browser rendering, storage, media settings, and file prompts.
+This project intentionally avoids hidden extensions, page injection, ad blocking, traffic interception, authentication bypassing, subscription bypassing, and DRM bypassing. Spotify playback is handed to installed supported browsers instead of trying to bypass protected-content checks in an embedded WebView.
