@@ -45,6 +45,7 @@ class WebViewBrowserFactory(
             isFocusable = true
             isFocusableInTouchMode = true
             applySpotifySettings(settings)
+            setInitialScale(100)
             webViewClient = SpotifyWebViewClient(publisher, onRendererGone)
             webChromeClient = SpotifyWebChromeClient(publisher)
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
@@ -78,6 +79,8 @@ class WebViewBrowserFactory(
             mixedContentMode = WebSettings.MIXED_CONTENT_NEVER_ALLOW
             cacheMode = WebSettings.LOAD_DEFAULT
             textZoom = settings.defaultZoomPercent.coerceIn(75, 150)
+            useWideViewPort = false
+            loadWithOverviewMode = false
             setSupportMultipleWindows(false)
             javaScriptCanOpenWindowsAutomatically = false
             builtInZoomControls = false
@@ -308,6 +311,8 @@ fun WebView.applyBrowserSettings(settings: BrowserSettings) {
         javaScriptEnabled = settings.javaScriptEnabled
         mediaPlaybackRequiresUserGesture = false
         textZoom = settings.defaultZoomPercent.coerceIn(75, 150)
+        useWideViewPort = false
+        loadWithOverviewMode = false
         userAgentString = SpotifyUserAgent.create(context, settings.useDesktopUserAgent)
     }
 }

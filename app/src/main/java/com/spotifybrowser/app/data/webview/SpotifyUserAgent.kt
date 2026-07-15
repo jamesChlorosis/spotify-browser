@@ -16,7 +16,7 @@ internal object SpotifyUserAgent {
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
                 "(KHTML, like Gecko) Chrome/$chromeVersion Safari/537.36"
         } else {
-            "Mozilla/5.0 (Linux; Android ${Build.VERSION.RELEASE}; Mobile) " +
+            "Mozilla/5.0 (Linux; Android ${Build.VERSION.RELEASE}; Pixel 8) " +
                 "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/$chromeVersion Mobile Safari/537.36"
         }
     }

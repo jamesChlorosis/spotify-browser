@@ -13,7 +13,7 @@ class PreferencesRepository(context: Context) {
     val settings: Flow<BrowserSettings> = dataStore.data
         .map { preferences ->
             BrowserSettings(
-                useDesktopUserAgent = true,
+                useDesktopUserAgent = false,
                 defaultZoomPercent = 100,
                 javaScriptEnabled = true,
                 autoplayEnabled = true,
