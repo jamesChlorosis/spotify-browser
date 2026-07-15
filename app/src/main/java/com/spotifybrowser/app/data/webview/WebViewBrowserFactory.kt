@@ -4,16 +4,21 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.Bitmap
 import android.net.Uri
+import android.net.http.SslError
 import android.os.Build
 import android.webkit.CookieManager
 import android.webkit.PermissionRequest
+import android.webkit.RenderProcessGoneDetail
+import android.webkit.SslErrorHandler
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
+import android.webkit.WebResourceResponse
 import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
-import com.spotifybrowser.app.BuildConfig
+import android.webkit.WebViewRenderProcess
+import android.webkit.WebViewRenderProcessClient
 import com.spotifybrowser.app.data.preferences.BrowserSettings
 import com.spotifybrowser.app.data.profile.BrowserProfile
 import com.spotifybrowser.app.data.web.BrowserChromeState
@@ -29,18 +34,22 @@ class WebViewBrowserFactory(
         context: Context,
         profile: BrowserProfile,
         settings: BrowserSettings,
-        onStateChanged: (BrowserChromeState) -> Unit
+        onStateChanged: (BrowserChromeState) -> Unit,
+        onRendererGone: () -> Unit
     ): WebViewBrowserHandle {
         WebViewProfileDirectory.configure(profile)
-        WebView.setWebContentsDebuggingEnabled(BuildConfig.DEBUG)
+        WebView.setWebContentsDebuggingEnabled(false)
 
         val publisher = BrowserStatePublisher(onStateChanged)
         val webView = WebView(context).apply {
             isFocusable = true
             isFocusableInTouchMode = true
             applySpotifySettings(settings)
-            webViewClient = SpotifyWebViewClient(publisher)
+            webViewClient = SpotifyWebViewClient(publisher, onRendererGone)
             webChromeClient = SpotifyWebChromeClient(publisher)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                setWebViewRenderProcessClient(SpotifyRenderProcessClient(publisher))
+            }
             loadUrl(SpotifyUrls.HOME)
         }
 
@@ -65,11 +74,16 @@ class WebViewBrowserFactory(
             domStorageEnabled = true
             databaseEnabled = true
             loadsImagesAutomatically = true
-            mediaPlaybackRequiresUserGesture = !settings.autoplayEnabled
+            mediaPlaybackRequiresUserGesture = false
             mixedContentMode = WebSettings.MIXED_CONTENT_NEVER_ALLOW
             cacheMode = WebSettings.LOAD_DEFAULT
             textZoom = settings.defaultZoomPercent.coerceIn(75, 150)
             setSupportMultipleWindows(false)
+            javaScriptCanOpenWindowsAutomatically = false
+            builtInZoomControls = false
+            displayZoomControls = false
+            allowFileAccess = false
+            allowContentAccess = true
             userAgentString = SpotifyUserAgent.create(context, settings.useDesktopUserAgent)
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
                 offscreenPreRaster = true
@@ -81,7 +95,8 @@ class WebViewBrowserFactory(
     }
 
     private inner class SpotifyWebViewClient(
-        private val publisher: BrowserStatePublisher
+        private val publisher: BrowserStatePublisher,
+        private val onRendererGone: () -> Unit
     ) : WebViewClient() {
         override fun shouldOverrideUrlLoading(
             view: WebView,
@@ -142,11 +157,67 @@ class WebViewBrowserFactory(
                     isLoading = false,
                     error = BrowserError(
                         description = error.description?.toString()
-                            ?: "Spotify could not load in the Chromium browser.",
+                            ?: "Spotify could not load. Check your connection and try again.",
                         failingUrl = request.url?.toString()
                     )
                 )
             }
+        }
+
+        override fun onReceivedHttpError(
+            view: WebView,
+            request: WebResourceRequest,
+            errorResponse: WebResourceResponse
+        ) {
+            if (!request.isForMainFrame) return
+
+            publisher.update {
+                copy(
+                    isLoading = false,
+                    error = BrowserError(
+                        description = "Spotify returned HTTP ${errorResponse.statusCode}.",
+                        failingUrl = request.url?.toString()
+                    )
+                )
+            }
+        }
+
+        override fun onReceivedSslError(
+            view: WebView,
+            handler: SslErrorHandler,
+            error: SslError
+        ) {
+            handler.cancel()
+            publisher.update {
+                copy(
+                    isLoading = false,
+                    error = BrowserError(
+                        description = "A secure connection to Spotify could not be verified.",
+                        failingUrl = error.url
+                    )
+                )
+            }
+        }
+
+        override fun onRenderProcessGone(
+            view: WebView,
+            detail: RenderProcessGoneDetail
+        ): Boolean {
+            publisher.update {
+                copy(
+                    isLoading = false,
+                    error = BrowserError(
+                        description = if (detail.didCrash()) {
+                            "Spotify's renderer crashed and was restarted."
+                        } else {
+                            "Android stopped Spotify's renderer to free memory; it was restarted."
+                        },
+                        failingUrl = currentUrl.ifBlank { SpotifyUrls.HOME }
+                    )
+                )
+            }
+            view.post { onRendererGone() }
+            return true
         }
     }
 
@@ -170,7 +241,19 @@ class WebViewBrowserFactory(
         }
 
         override fun onPermissionRequest(request: PermissionRequest) {
-            request.deny()
+            val protectedMediaResources = request.resources
+                .filter { it == PermissionRequest.RESOURCE_PROTECTED_MEDIA_ID }
+                .toTypedArray()
+            val originHost = request.origin?.host
+
+            if (
+                protectedMediaResources.isNotEmpty() &&
+                ExternalLinkPolicy.isTrustedSpotifyMediaHost(originHost)
+            ) {
+                request.grant(protectedMediaResources)
+            } else {
+                request.deny()
+            }
         }
 
         override fun onShowCustomView(view: android.view.View?, callback: CustomViewCallback?) {
@@ -180,6 +263,31 @@ class WebViewBrowserFactory(
 
         override fun onHideCustomView() {
             host.setPageFullscreen(false)
+        }
+    }
+
+    private class SpotifyRenderProcessClient(
+        private val publisher: BrowserStatePublisher
+    ) : WebViewRenderProcessClient() {
+        override fun onRenderProcessUnresponsive(
+            view: WebView,
+            renderer: WebViewRenderProcess?
+        ) {
+            publisher.update {
+                copy(
+                    error = BrowserError(
+                        description = "Spotify stopped responding. Tap Retry to reload it.",
+                        failingUrl = currentUrl.ifBlank { SpotifyUrls.HOME }
+                    )
+                )
+            }
+        }
+
+        override fun onRenderProcessResponsive(
+            view: WebView,
+            renderer: WebViewRenderProcess?
+        ) {
+            publisher.update { copy(error = null) }
         }
     }
 
@@ -198,7 +306,7 @@ class WebViewBrowserFactory(
 fun WebView.applyBrowserSettings(settings: BrowserSettings) {
     this.settings.apply {
         javaScriptEnabled = settings.javaScriptEnabled
-        mediaPlaybackRequiresUserGesture = !settings.autoplayEnabled
+        mediaPlaybackRequiresUserGesture = false
         textZoom = settings.defaultZoomPercent.coerceIn(75, 150)
         userAgentString = SpotifyUserAgent.create(context, settings.useDesktopUserAgent)
     }

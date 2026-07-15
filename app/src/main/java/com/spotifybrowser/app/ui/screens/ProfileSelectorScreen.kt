@@ -6,7 +6,6 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -14,17 +13,12 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Headphones
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -36,7 +30,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.spotifybrowser.app.data.profile.BrowserProfile
-import com.spotifybrowser.app.data.web.SpotifyUrls
 import com.spotifybrowser.app.ui.components.DeleteProfileDialog
 import com.spotifybrowser.app.ui.components.ProfileList
 import com.spotifybrowser.app.ui.components.ProfileNameDialog
@@ -49,15 +42,12 @@ fun ProfileSelectorScreen(
     onOpenProfile: (BrowserProfile) -> Unit,
     onCreateProfile: (String) -> Unit,
     onRenameProfile: (BrowserProfile, String) -> Unit,
-    onDeleteProfile: (BrowserProfile) -> Unit,
-    onOpenExtensionUrl: (String) -> Unit
+    onDeleteProfile: (BrowserProfile) -> Unit
 ) {
     var createDialogOpen by remember { mutableStateOf(false) }
     var renameTarget by remember { mutableStateOf<BrowserProfile?>(null) }
     var deleteTarget by remember { mutableStateOf<BrowserProfile?>(null) }
     var selectedProfileId by remember { mutableStateOf(lastProfileId) }
-    var extensionDialogOpen by remember { mutableStateOf(false) }
-    var extensionUrl by remember { mutableStateOf(SpotifyUrls.EDGE_ADDONS) }
 
     LaunchedEffect(profiles, lastProfileId) {
         selectedProfileId = lastProfileId ?: profiles.firstOrNull()?.id
@@ -104,43 +94,6 @@ fun ProfileSelectorScreen(
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                             Spacer(Modifier.height(28.dp))
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(10.dp)
-                            ) {
-                                OutlinedButton(
-                                    modifier = Modifier.weight(1f),
-                                    onClick = { onOpenExtensionUrl(SpotifyUrls.EDGE_ADDONS) }
-                                ) {
-                                    Text("Edge add-ons")
-                                }
-                                OutlinedButton(
-                                    modifier = Modifier.weight(1f),
-                                    onClick = { onOpenExtensionUrl(SpotifyUrls.FIREFOX_ADDONS) }
-                                ) {
-                                    Text("Firefox add-ons")
-                                }
-                            }
-                            Spacer(Modifier.height(10.dp))
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(10.dp)
-                            ) {
-                                OutlinedButton(
-                                    modifier = Modifier.weight(1f),
-                                    onClick = { onOpenExtensionUrl(SpotifyUrls.EDGE_PLAY_STORE) }
-                                ) {
-                                    Text("Get Edge")
-                                }
-                                OutlinedButton(
-                                    modifier = Modifier.weight(1f),
-                                    onClick = { extensionDialogOpen = true }
-                                ) {
-                                    Text("Extension URL")
-                                }
-                            }
-                            Spacer(Modifier.height(10.dp))
-
                             ProfileList(
                                 profiles = profiles,
                                 selectedProfileId = selectedProfileId,
@@ -170,36 +123,6 @@ fun ProfileSelectorScreen(
             onConfirm = {
                 createDialogOpen = false
                 onCreateProfile(it)
-            }
-        )
-    }
-
-    if (extensionDialogOpen) {
-        AlertDialog(
-            onDismissRequest = { extensionDialogOpen = false },
-            title = { Text("Open extension URL") },
-            text = {
-                OutlinedTextField(
-                    value = extensionUrl,
-                    onValueChange = { extensionUrl = it },
-                    singleLine = true,
-                    label = { Text("Extension or store URL") }
-                )
-            },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        extensionDialogOpen = false
-                        onOpenExtensionUrl(extensionUrl)
-                    }
-                ) {
-                    Text("Open")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { extensionDialogOpen = false }) {
-                    Text("Cancel")
-                }
             }
         )
     }

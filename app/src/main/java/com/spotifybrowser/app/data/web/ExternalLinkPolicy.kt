@@ -9,14 +9,20 @@ object ExternalLinkPolicy {
 
     fun shouldOpenExternally(scheme: String?, host: String?): Boolean {
         val cleanScheme = scheme?.lowercase() ?: return true
-        if (cleanScheme != "http" && cleanScheme != "https") return true
-
-        val cleanHost = host?.lowercase() ?: return true
-        return !isSpotifyHost(cleanHost)
+        return cleanScheme != "http" && cleanScheme != "https"
     }
 
     fun isSpotifyHost(host: String?): Boolean {
         val cleanHost = host?.lowercase() ?: return false
         return cleanHost == "spotify.com" || cleanHost.endsWith(".spotify.com")
+    }
+
+    fun isTrustedSpotifyMediaHost(host: String?): Boolean {
+        val cleanHost = host?.lowercase() ?: return false
+        return isSpotifyHost(cleanHost) ||
+            cleanHost == "spotifycdn.com" ||
+            cleanHost.endsWith(".spotifycdn.com") ||
+            cleanHost == "scdn.co" ||
+            cleanHost.endsWith(".scdn.co")
     }
 }

@@ -128,22 +128,6 @@ class MainViewModel(
         }
     }
 
-    fun setDesktopUserAgent(enabled: Boolean) {
-        viewModelScope.launch { preferencesRepository.setDesktopUserAgent(enabled) }
-    }
-
-    fun setDefaultZoomPercent(percent: Int) {
-        viewModelScope.launch { preferencesRepository.setDefaultZoomPercent(percent) }
-    }
-
-    fun setJavaScriptEnabled(enabled: Boolean) {
-        viewModelScope.launch { preferencesRepository.setJavaScriptEnabled(enabled) }
-    }
-
-    fun setAutoplayEnabled(enabled: Boolean) {
-        viewModelScope.launch { preferencesRepository.setAutoplayEnabled(enabled) }
-    }
-
     fun setThemeMode(themeMode: ThemeMode) {
         viewModelScope.launch { preferencesRepository.setThemeMode(themeMode) }
     }

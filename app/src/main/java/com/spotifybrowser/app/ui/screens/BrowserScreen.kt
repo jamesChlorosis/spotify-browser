@@ -1,6 +1,5 @@
 package com.spotifybrowser.app.ui.screens
 
-import android.net.Uri
 import android.widget.Toast
 import android.webkit.CookieManager
 import androidx.compose.animation.AnimatedVisibility
@@ -27,9 +26,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.ArrowForward
-import androidx.compose.material.icons.filled.Extension
 import androidx.compose.material.icons.filled.Groups
-import androidx.compose.material.icons.filled.OpenInBrowser
+import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Button
@@ -86,10 +84,6 @@ fun BrowserScreen(
     onCreateProfile: (String) -> Unit,
     onRenameProfile: (BrowserProfile, String) -> Unit,
     onDeleteProfile: (BrowserProfile) -> Unit,
-    onDesktopUserAgentChanged: (Boolean) -> Unit,
-    onZoomChanged: (Int) -> Unit,
-    onJavaScriptChanged: (Boolean) -> Unit,
-    onAutoplayChanged: (Boolean) -> Unit,
     onThemeChanged: (ThemeMode) -> Unit
 ) {
     val context = LocalContext.current
@@ -125,7 +119,11 @@ fun BrowserScreen(
                         context = androidContext,
                         profile = activeProfile,
                         settings = settings,
-                        onStateChanged = onBrowserChromeChanged
+                        onStateChanged = onBrowserChromeChanged,
+                        onRendererGone = {
+                            browserHandle = null
+                            reloadToken += 1
+                        }
                     )
                     browserHandle = handle
                     localHandle = handle
@@ -191,11 +189,9 @@ fun BrowserScreen(
                 onForward = { browserHandle?.goForward() },
                 onRefresh = { browserHandle?.reload() },
                 onOpenSpotify = {
-                    val url = browserChrome.currentUrl.takeIf { it.isNotBlank() } ?: SpotifyUrls.HOME
-                    host.openSpotifyInCompatibleBrowser(Uri.parse(url))
+                    browserHandle?.loadUri(SpotifyUrls.HOME) ?: run { reloadToken += 1 }
                 },
-                onSignIn = { host.openSpotifyInCompatibleBrowser(Uri.parse(SpotifyUrls.LOGIN)) },
-                onExtensions = { host.openExtensionUrl(SpotifyUrls.EDGE_ADDONS) },
+                onSignIn = { browserHandle?.loadUri(SpotifyUrls.LOGIN) ?: run { reloadToken += 1 } },
                 onProfiles = {
                     profilesVisible = true
                     controlsVisible = true
@@ -218,10 +214,6 @@ fun BrowserScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .verticalScroll(rememberScrollState()),
-                onDesktopUserAgentChanged = onDesktopUserAgentChanged,
-                onZoomChanged = onZoomChanged,
-                onJavaScriptChanged = onJavaScriptChanged,
-                onAutoplayChanged = onAutoplayChanged,
                 onThemeChanged = onThemeChanged,
                 onClearCache = {
                     browserHandle?.clearCache()
@@ -271,7 +263,6 @@ private fun BrowserControlDock(
     onRefresh: () -> Unit,
     onOpenSpotify: () -> Unit,
     onSignIn: () -> Unit,
-    onExtensions: () -> Unit,
     onProfiles: () -> Unit,
     onSettings: () -> Unit
 ) {
@@ -315,13 +306,10 @@ private fun BrowserControlDock(
                     Icon(Icons.Default.Refresh, contentDescription = "Refresh")
                 }
                 IconButton(onClick = onOpenSpotify) {
-                    Icon(Icons.Default.OpenInBrowser, contentDescription = "Open in compatible browser")
+                    Icon(Icons.Default.Home, contentDescription = "Open Spotify")
                 }
                 IconButton(onClick = onSignIn) {
                     Icon(Icons.Default.AccountCircle, contentDescription = "Sign in")
-                }
-                IconButton(onClick = onExtensions) {
-                    Icon(Icons.Default.Extension, contentDescription = "Extensions")
                 }
                 IconButton(onClick = onProfiles) {
                     Icon(Icons.Default.Groups, contentDescription = "Profiles")

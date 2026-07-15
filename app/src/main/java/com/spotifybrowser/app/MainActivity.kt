@@ -18,7 +18,6 @@ import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.browser.customtabs.CustomTabsIntent
 import com.spotifybrowser.app.data.preferences.PreferencesRepository
 import com.spotifybrowser.app.data.profile.ProfileManager
 import com.spotifybrowser.app.data.webview.WebViewBrowserHost
@@ -28,22 +27,6 @@ import com.spotifybrowser.app.viewmodel.MainViewModel
 import com.spotifybrowser.app.viewmodel.MainViewModelFactory
 
 class MainActivity : ComponentActivity(), WebViewBrowserHost {
-    private val spotifyBrowserPackages = listOf(
-        "com.android.chrome",
-        "com.chrome.beta",
-        "com.chrome.dev",
-        "com.sec.android.app.sbrowser"
-    )
-
-    private val extensionBrowserPackages = listOf(
-        "com.microsoft.emmx",
-        "com.microsoft.emmx.beta",
-        "com.microsoft.emmx.dev",
-        "com.microsoft.emmx.canary",
-        "org.mozilla.firefox",
-        "org.mozilla.firefox_beta"
-    )
-
     private val profileManager by lazy { ProfileManager(applicationContext) }
     private val preferencesRepository by lazy { PreferencesRepository(applicationContext) }
 
@@ -88,10 +71,6 @@ class MainActivity : ComponentActivity(), WebViewBrowserHost {
                     onRenameProfile = viewModel::renameProfile,
                     onDeleteProfile = viewModel::deleteProfile,
                     onBrowserChromeChanged = viewModel::updateBrowserChrome,
-                    onDesktopUserAgentChanged = viewModel::setDesktopUserAgent,
-                    onZoomChanged = viewModel::setDefaultZoomPercent,
-                    onJavaScriptChanged = viewModel::setJavaScriptEnabled,
-                    onAutoplayChanged = viewModel::setAutoplayEnabled,
                     onThemeChanged = viewModel::setThemeMode
                 )
             }
@@ -112,58 +91,6 @@ class MainActivity : ComponentActivity(), WebViewBrowserHost {
         launchUri(uri, packageName = null, showError = true)
     }
 
-    override fun openSpotifyInCompatibleBrowser(uri: Uri) {
-        val launched = spotifyBrowserPackages.any { packageName ->
-            launchCustomTab(uri, packageName = packageName)
-        }
-
-        if (!launched) {
-            Toast.makeText(
-                this,
-                "Opening Spotify in your browser. Chrome or Samsung Internet is recommended for protected content.",
-                Toast.LENGTH_LONG
-            ).show()
-            launchUri(uri, packageName = null, showError = true)
-        }
-    }
-
-    override fun openExtensionUrl(url: String) {
-        val uri = url.toWebUriOrNull()
-        if (uri == null) {
-            Toast.makeText(this, "Enter a valid http or https extension URL", Toast.LENGTH_LONG).show()
-            return
-        }
-        val launched = extensionBrowserPackages.any { packageName ->
-            launchUri(uri, packageName = packageName, showError = false)
-        }
-
-        if (!launched) {
-            Toast.makeText(
-                this,
-                "Install Microsoft Edge or Firefox to add mobile-supported extensions.",
-                Toast.LENGTH_LONG
-            ).show()
-            launchUri(uri, packageName = null, showError = true)
-        }
-    }
-
-    private fun launchCustomTab(
-        uri: Uri,
-        packageName: String
-    ): Boolean {
-        val customTabsIntent = CustomTabsIntent.Builder()
-            .setShowTitle(true)
-            .setUrlBarHidingEnabled(false)
-            .build()
-        customTabsIntent.intent.setPackage(packageName)
-        customTabsIntent.intent.addCategory(Intent.CATEGORY_BROWSABLE)
-
-        return runCatching {
-            customTabsIntent.launchUrl(this, uri)
-            true
-        }.getOrElse { false }
-    }
-
     private fun launchUri(
         uri: Uri,
         packageName: String?,
@@ -181,30 +108,12 @@ class MainActivity : ComponentActivity(), WebViewBrowserHost {
             if (showError && it is ActivityNotFoundException) {
                 Toast.makeText(
                     this,
-                    "No browser can open this link",
+                    "No app can open this link",
                     Toast.LENGTH_LONG
                 ).show()
             }
             false
         }
-    }
-
-    private fun String.toWebUriOrNull(): Uri? {
-        val trimmed = trim()
-        if (trimmed.isEmpty()) return null
-
-        val normalized = if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) {
-            trimmed
-        } else {
-            "https://$trimmed"
-        }
-
-        return runCatching {
-            Uri.parse(normalized).takeIf { uri ->
-                val scheme = uri.scheme?.lowercase()
-                scheme == "http" || scheme == "https"
-            }
-        }.getOrNull()
     }
 
     override fun setPageFullscreen(enabled: Boolean) {

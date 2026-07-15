@@ -12,8 +12,14 @@ class ExternalLinkPolicyTest {
     }
 
     @Test
-    fun nonSpotifyHostsOpenExternally() {
-        assertTrue(ExternalLinkPolicy.shouldOpenExternally("https", "example.com"))
+    fun webLinksStayInsideApp() {
+        assertFalse(ExternalLinkPolicy.shouldOpenExternally("https", "example.com"))
+        assertFalse(ExternalLinkPolicy.shouldOpenExternally("http", "example.com"))
+    }
+
+    @Test
+    fun nonWebSchemesOpenExternally() {
         assertTrue(ExternalLinkPolicy.shouldOpenExternally("spotify", null))
+        assertTrue(ExternalLinkPolicy.shouldOpenExternally("mailto", "example.com"))
     }
 }
