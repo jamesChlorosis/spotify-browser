@@ -14,7 +14,7 @@ class PreferencesRepository(context: Context) {
         .map { preferences ->
             BrowserSettings(
                 useDesktopUserAgent = false,
-                defaultZoomPercent = 115,
+                defaultZoomPercent = 125,
                 javaScriptEnabled = true,
                 autoplayEnabled = true,
                 themeMode = preferences[Keys.ThemeMode]?.let(ThemeMode::valueOf) ?: ThemeMode.System

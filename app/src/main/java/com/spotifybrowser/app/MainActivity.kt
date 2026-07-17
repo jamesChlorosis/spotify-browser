@@ -4,8 +4,10 @@ import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
+import android.view.KeyEvent
 import android.webkit.ValueCallback
 import android.webkit.WebChromeClient
+import android.webkit.WebView
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -40,6 +42,7 @@ class MainActivity : ComponentActivity(), WebViewBrowserHost {
     }
 
     private var pendingWebViewFileCallback: ValueCallback<Array<Uri>>? = null
+    private var activeWebView: WebView? = null
 
     private val singleFileLauncher = registerForActivityResult(
         ActivityResultContracts.OpenDocument()
@@ -84,7 +87,19 @@ class MainActivity : ComponentActivity(), WebViewBrowserHost {
 
     override fun onDestroy() {
         dismissPendingWebViewFilePrompt()
+        activeWebView = null
         super.onDestroy()
+    }
+
+    override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+        if (event.keyCode in MediaKeyCodes && activeWebView?.dispatchKeyEvent(event) == true) {
+            return true
+        }
+        return super.dispatchKeyEvent(event)
+    }
+
+    override fun setActiveWebView(webView: WebView?) {
+        activeWebView = webView
     }
 
     override fun openExternalUri(uri: Uri) {
@@ -173,5 +188,18 @@ class MainActivity : ComponentActivity(), WebViewBrowserHost {
                 WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
             hide(WindowInsetsCompat.Type.systemBars())
         }
+    }
+
+    private companion object {
+        val MediaKeyCodes = setOf(
+            KeyEvent.KEYCODE_MEDIA_PLAY,
+            KeyEvent.KEYCODE_MEDIA_PAUSE,
+            KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE,
+            KeyEvent.KEYCODE_MEDIA_NEXT,
+            KeyEvent.KEYCODE_MEDIA_PREVIOUS,
+            KeyEvent.KEYCODE_MEDIA_STOP,
+            KeyEvent.KEYCODE_MEDIA_REWIND,
+            KeyEvent.KEYCODE_MEDIA_FAST_FORWARD
+        )
     }
 }

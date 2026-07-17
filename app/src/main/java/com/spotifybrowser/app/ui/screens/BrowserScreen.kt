@@ -136,6 +136,9 @@ fun BrowserScreen(
 
             DisposableEffect(Unit) {
                 onDispose {
+                    if (localHandle?.view === browserHandle?.view) {
+                        host.setActiveWebView(null)
+                    }
                     localHandle?.dispose()
                     if (browserHandle === localHandle) {
                         browserHandle = null
@@ -179,9 +182,9 @@ fun BrowserScreen(
 
         AnimatedVisibility(
             visible = controlsVisible || browserChrome.error != null,
-            modifier = Modifier.align(Alignment.BottomCenter),
-            enter = fadeIn() + slideInVertically { it },
-            exit = fadeOut() + slideOutVertically { it }
+            modifier = Modifier.align(Alignment.TopCenter),
+            enter = fadeIn() + slideInVertically { -it },
+            exit = fadeOut() + slideOutVertically { -it }
         ) {
             BrowserControlDock(
                 browserChrome = browserChrome,
@@ -269,7 +272,6 @@ private fun BrowserControlDock(
     Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .navigationBarsPadding()
             .padding(12.dp),
         color = MaterialTheme.colorScheme.surface.copy(alpha = 0.94f),
         tonalElevation = 8.dp,

@@ -3,8 +3,10 @@ package com.spotifybrowser.app.data.webview
 import android.net.Uri
 import android.webkit.ValueCallback
 import android.webkit.WebChromeClient
+import android.webkit.WebView
 
 interface WebViewBrowserHost {
+    fun setActiveWebView(webView: WebView?)
     fun openExternalUri(uri: Uri)
     fun setPageFullscreen(enabled: Boolean)
     fun onShowFileChooser(
