@@ -1,6 +1,6 @@
 # Spotify Browser
 
-Spotify Browser is an unofficial dedicated Android launcher for the Spotify Web Player at `https://open.spotify.com/`. It starts with local profiles like the original app, then opens Spotify in a compatible installed Android browser for playback so protected content/Widevine checks are handled by Chrome or Samsung Internet instead of the embedded fallback view.
+Spotify Browser is an unofficial dedicated Android shell for the Spotify Web Player at `https://open.spotify.com/`. It starts with local profiles like the original app, then loads Spotify inside an Android WebView configured for persistent storage, protected-media permission requests, and a comfortable mobile viewport.
 
 The app stays inside Spotify's platform boundaries: it does not inject scripts into Spotify pages, modify Spotify network traffic, bypass advertisements, bypass DRM, bypass authentication, or alter subscription behavior.
 
@@ -11,14 +11,12 @@ The app stays inside Spotify's platform boundaries: it does not inject scripts i
 - Full-screen immersive standalone app experience
 - Profile picker on launch for the old multi-profile flow
 - Faster startup by avoiding browser engine startup until a profile is selected
-- Spotify playback handoff to Chrome/Samsung Internet for protected content
-- In-app WebView fallback for browsing/settings flows
-- Spotify sign-in button that opens Spotify Accounts in the compatible browser
-- Edge Add-ons, Firefox Add-ons, and custom extension URL shortcuts for downloading browser extensions
+- Internal Spotify WebView for playback and login flows
+- Spotify sign-in button that opens Spotify Accounts inside the app
 - Persistent login, cookies, DOM storage, local storage, and cache
 - Back, forward, refresh, file upload, and media playback
-- External non-Spotify links open in the user's default browser
-- Settings for desktop/mobile user agent, zoom, JavaScript, autoplay behavior, theme, cache, cookies, and profile data
+- Non-web links open in the user's default Android handler
+- Settings for theme, cache, cookies, and profile data
 - DataStore-backed preferences and MVVM structure
 
 ## Project Structure
@@ -85,4 +83,4 @@ app/build/outputs/apk/release/app-release.apk
 
 ## Compliance Notes
 
-This project intentionally avoids hidden extensions, page injection, ad blocking, traffic interception, authentication bypassing, subscription bypassing, and DRM bypassing. Spotify playback is handed to installed supported browsers instead of trying to bypass protected-content checks in an embedded WebView.
+This project intentionally avoids hidden extensions, page injection, ad blocking, traffic interception, authentication bypassing, subscription bypassing, and DRM bypassing. Android WebView does not expose Chrome's extension runtime, extension service workers, or Chrome Web Store installation APIs; real extension support would require replacing this WebView shell with a browser engine that exposes an extension system.

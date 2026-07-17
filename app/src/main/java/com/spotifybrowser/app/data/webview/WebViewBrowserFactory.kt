@@ -29,6 +29,10 @@ import com.spotifybrowser.app.data.web.SpotifyUrls
 class WebViewBrowserFactory(
     private val host: WebViewBrowserHost
 ) {
+    private companion object {
+        const val SPOTIFY_PAGE_SCALE_PERCENT = 115
+    }
+
     @SuppressLint("SetJavaScriptEnabled")
     fun create(
         context: Context,
@@ -45,7 +49,7 @@ class WebViewBrowserFactory(
             isFocusable = true
             isFocusableInTouchMode = true
             applySpotifySettings(settings)
-            setInitialScale(100)
+            setInitialScale(SPOTIFY_PAGE_SCALE_PERCENT)
             webViewClient = SpotifyWebViewClient(publisher, onRendererGone)
             webChromeClient = SpotifyWebChromeClient(publisher)
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
@@ -78,7 +82,7 @@ class WebViewBrowserFactory(
             mediaPlaybackRequiresUserGesture = false
             mixedContentMode = WebSettings.MIXED_CONTENT_NEVER_ALLOW
             cacheMode = WebSettings.LOAD_DEFAULT
-            textZoom = settings.defaultZoomPercent.coerceIn(75, 150)
+            textZoom = settings.defaultZoomPercent.coerceIn(100, 130)
             useWideViewPort = false
             loadWithOverviewMode = false
             setSupportMultipleWindows(false)
@@ -310,7 +314,8 @@ fun WebView.applyBrowserSettings(settings: BrowserSettings) {
     this.settings.apply {
         javaScriptEnabled = settings.javaScriptEnabled
         mediaPlaybackRequiresUserGesture = false
-        textZoom = settings.defaultZoomPercent.coerceIn(75, 150)
+        textZoom = settings.defaultZoomPercent.coerceIn(100, 130)
+        this@applyBrowserSettings.setInitialScale(115)
         useWideViewPort = false
         loadWithOverviewMode = false
         userAgentString = SpotifyUserAgent.create(context, settings.useDesktopUserAgent)
