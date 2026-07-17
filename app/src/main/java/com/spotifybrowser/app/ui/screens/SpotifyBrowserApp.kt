@@ -29,16 +29,10 @@ fun SpotifyBrowserApp(
     } else {
         BrowserScreen(
             activeProfile = activeProfile,
-            profiles = uiState.profiles,
             settings = uiState.settings,
             browserChrome = uiState.browserChrome,
             host = browserHost,
-            onBrowserChromeChanged = onBrowserChromeChanged,
-            onOpenProfile = onOpenProfile,
-            onCreateProfile = onCreateProfile,
-            onRenameProfile = onRenameProfile,
-            onDeleteProfile = onDeleteProfile,
-            onThemeChanged = onThemeChanged
+            onBrowserChromeChanged = onBrowserChromeChanged
         )
     }
 }

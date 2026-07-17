@@ -1,15 +1,21 @@
 package com.spotifybrowser.app
 
 import android.content.ActivityNotFoundException
+import android.app.DownloadManager
+import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
+import android.os.Environment
 import android.view.KeyEvent
+import android.webkit.CookieManager
+import android.webkit.URLUtil
 import android.webkit.ValueCallback
 import android.webkit.WebChromeClient
 import android.webkit.WebView
 import android.widget.Toast
 import androidx.activity.ComponentActivity
+import androidx.activity.OnBackPressedCallback
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
@@ -62,6 +68,16 @@ class MainActivity : ComponentActivity(), WebViewBrowserHost {
         enableEdgeToEdge()
         WindowCompat.setDecorFitsSystemWindows(window, false)
         hideSystemBars()
+        onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                val webView = activeWebView
+                if (webView?.canGoBack() == true) {
+                    webView.goBack()
+                } else {
+                    finish()
+                }
+            }
+        })
 
         setContent {
             val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -85,6 +101,18 @@ class MainActivity : ComponentActivity(), WebViewBrowserHost {
         if (hasFocus) hideSystemBars()
     }
 
+    override fun onResume() {
+        super.onResume()
+        activeWebView?.onResume()
+        activeWebView?.requestFocus()
+    }
+
+    override fun onPause() {
+        CookieManager.getInstance().flush()
+        activeWebView?.onPause()
+        super.onPause()
+    }
+
     override fun onDestroy() {
         dismissPendingWebViewFilePrompt()
         activeWebView = null
@@ -104,6 +132,36 @@ class MainActivity : ComponentActivity(), WebViewBrowserHost {
 
     override fun openExternalUri(uri: Uri) {
         launchUri(uri, packageName = null, showError = true)
+    }
+
+    override fun download(
+        url: String,
+        userAgent: String,
+        contentDisposition: String?,
+        mimeType: String?
+    ) {
+        val uri = Uri.parse(url)
+        if (uri.scheme != "https" && uri.scheme != "http") {
+            Toast.makeText(this, "This download link is not supported", Toast.LENGTH_LONG).show()
+            return
+        }
+
+        val fileName = URLUtil.guessFileName(url, contentDisposition, mimeType)
+        runCatching {
+            val request = DownloadManager.Request(uri)
+                .setTitle(fileName)
+                .setDescription("Downloading file")
+                .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
+                .setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, fileName)
+                .addRequestHeader("User-Agent", userAgent)
+                .addRequestHeader("Cookie", CookieManager.getInstance().getCookie(url).orEmpty())
+            mimeType?.let(request::setMimeType)
+            (getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager).enqueue(request)
+        }.onSuccess {
+            Toast.makeText(this, "Download started", Toast.LENGTH_SHORT).show()
+        }.onFailure {
+            Toast.makeText(this, "Could not start this download", Toast.LENGTH_LONG).show()
+        }
     }
 
     private fun launchUri(

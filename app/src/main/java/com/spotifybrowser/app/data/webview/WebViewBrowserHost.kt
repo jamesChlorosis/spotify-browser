@@ -8,6 +8,12 @@ import android.webkit.WebView
 interface WebViewBrowserHost {
     fun setActiveWebView(webView: WebView?)
     fun openExternalUri(uri: Uri)
+    fun download(
+        url: String,
+        userAgent: String,
+        contentDisposition: String?,
+        mimeType: String?
+    )
     fun setPageFullscreen(enabled: Boolean)
     fun onShowFileChooser(
         filePathCallback: ValueCallback<Array<Uri>>,

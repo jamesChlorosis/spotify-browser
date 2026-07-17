@@ -20,7 +20,6 @@ import android.webkit.WebViewClient
 import android.webkit.WebViewRenderProcess
 import android.webkit.WebViewRenderProcessClient
 import com.spotifybrowser.app.data.preferences.BrowserSettings
-import com.spotifybrowser.app.data.profile.BrowserProfile
 import com.spotifybrowser.app.data.web.BrowserChromeState
 import com.spotifybrowser.app.data.web.BrowserError
 import com.spotifybrowser.app.data.web.ExternalLinkPolicy
@@ -32,12 +31,10 @@ class WebViewBrowserFactory(
     @SuppressLint("SetJavaScriptEnabled")
     fun create(
         context: Context,
-        profile: BrowserProfile,
         settings: BrowserSettings,
         onStateChanged: (BrowserChromeState) -> Unit,
         onRendererGone: () -> Unit
     ): WebViewBrowserHandle {
-        WebViewProfileDirectory.configure(profile)
         WebView.setWebContentsDebuggingEnabled(false)
 
         val publisher = BrowserStatePublisher(onStateChanged)
@@ -47,6 +44,9 @@ class WebViewBrowserFactory(
             applySpotifySettings(settings)
             webViewClient = SpotifyWebViewClient(publisher, onRendererGone)
             webChromeClient = SpotifyWebChromeClient(publisher)
+            setDownloadListener { url, userAgent, contentDisposition, mimeType, _ ->
+                host.download(url, userAgent, contentDisposition, mimeType)
+            }
             setOnTouchListener { view, _ ->
                 if (!view.hasFocus()) view.requestFocus()
                 false
@@ -95,10 +95,8 @@ class WebViewBrowserFactory(
             displayZoomControls = false
             allowFileAccess = false
             allowContentAccess = true
+            setSaveFormData(false)
             userAgentString = SpotifyUserAgent.create(context, settings.useDesktopUserAgent)
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                offscreenPreRaster = true
-            }
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 safeBrowsingEnabled = true
             }
